@@ -260,6 +260,30 @@ tr:hover td{background:#f7fbfa;}
 .note-input{min-width:110px;}
 .stt-col{width:36px;color:#8ba39c;font-size:12px;text-align:center;}
 tfoot td{background:#eaf3f1;font-weight:700;border-top:2px solid var(--line);}
+.dm-filter-btn{
+  background:transparent;border:none;cursor:pointer;color:#5c7a72;
+  font-size:11px;margin-left:4px;padding:1px 4px;border-radius:3px;vertical-align:middle;
+}
+.dm-filter-btn:hover{background:rgba(255,255,255,.3);}
+.dm-filter-btn.active{background:var(--amber);color:#fff;}
+#dmFilterPopover{
+  display:none;position:fixed;z-index:1000;
+  background:#fff;border:1px solid var(--line);border-radius:10px;
+  box-shadow:0 8px 28px rgba(18,48,61,.22);width:290px;max-height:380px;
+  flex-direction:column;overflow:hidden;
+}
+#dmFilterPopover.open{display:flex;}
+#dmFilterPopover .fp-search{padding:10px;border-bottom:1px solid var(--line);}
+#dmFilterPopover .fp-search input{width:100%;padding:7px 10px;font-size:13px;border:1px solid var(--line);border-radius:6px;}
+#dmFilterPopover .fp-actions{display:flex;gap:6px;padding:8px 10px;border-bottom:1px solid var(--line);background:#fafcfb;}
+#dmFilterPopover .fp-actions button{flex:1;font-size:11.5px;padding:5px 6px;}
+#dmFilterPopover .fp-list{overflow-y:auto;padding:6px 10px;flex:1;}
+#dmFilterPopover .fp-item{display:flex;align-items:flex-start;gap:8px;padding:5px 2px;font-size:12.5px;border-bottom:1px solid #f1f5f4;}
+#dmFilterPopover .fp-item:last-child{border-bottom:none;}
+#dmFilterPopover .fp-item input[type="checkbox"]{width:15px;height:15px;flex-shrink:0;margin-top:1px;accent-color:var(--teal);}
+#dmFilterPopover .fp-item label{cursor:pointer;line-height:1.35;word-break:break-word;}
+#dmFilterPopover .fp-footer{display:flex;gap:6px;padding:10px;border-top:1px solid var(--line);}
+#dmFilterPopover .fp-footer button{flex:1;font-size:12px;}
 @media(max-width:640px){
   .topbar{padding:10px 14px;}
   .panel{padding:14px;}
@@ -369,11 +393,19 @@ tfoot td{background:#eaf3f1;font-weight:700;border-top:2px solid var(--line);}
       <div id="dotToolbar" style="margin-top:10px;display:flex;flex-direction:column;gap:8px;"></div>
     </div>
     <div class="card">
-      <input class="searchBox" id="dmSearch" placeholder="Tìm trong danh mục (tên, đợt/giai đoạn...)" oninput="renderCatalogAdmin()">
-      <table>
+      <div class="flex-between" style="flex-wrap:wrap;gap:10px;">
+        <input class="searchBox" id="dmSearch" placeholder="Tìm trong danh mục (tên, đợt/giai đoạn...)" oninput="dmCloseFilterPopover(); renderCatalogAdmin()" style="flex:1;min-width:220px;margin-bottom:0;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:#3d5a53;white-space:nowrap;">
+          <input type="checkbox" id="dmShowInactive" onchange="dmCloseFilterPopover(); renderCatalogAdmin()">
+          Hiện cả mặt hàng đã ngừng
+        </label>
+        <button class="btn danger small" onclick="deleteAllCatalog()">🗑 Xóa tất cả</button>
+      </div>
+      <table style="margin-top:12px;">
         <thead id="dmTableHead"></thead>
         <tbody id="catalogAdminBody"></tbody>
       </table>
+      <div id="dmHiddenNote" class="hint" style="margin-top:8px;"></div>
     </div>
   </div>
 
@@ -460,6 +492,18 @@ tfoot td{background:#eaf3f1;font-weight:700;border-top:2px solid var(--line);}
 </div>
 
 <div class="toast" id="toast"></div>
+<div id="dmFilterPopover">
+  <div class="fp-search"><input id="fpSearch" placeholder="Tìm giá trị..." oninput="renderFilterPopoverList()"></div>
+  <div class="fp-actions">
+    <button class="btn secondary small" onclick="fpSelectAll(true)">Chọn tất cả</button>
+    <button class="btn secondary small" onclick="fpSelectAll(false)">Bỏ chọn</button>
+  </div>
+  <div class="fp-list" id="fpList"></div>
+  <div class="fp-footer">
+    <button class="btn danger small" onclick="dmClearColumnFilter()">Xóa lọc</button>
+    <button class="btn small" onclick="dmCloseFilterPopover()">Đóng</button>
+  </div>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
@@ -487,6 +531,9 @@ let accounts = [];       // taiKhoanKhoa
 let phieuList = [];      // phieuDuTru (của khoa hiện tại hoặc tất cả nếu admin)
 let currentLoaiPhieu = 'thuoc'; // loại phiếu đang tạo: 'thuoc' | 'vattu_hoachat'
 let dmFilterLoai = 'thuoc';   // loại đang xem/thêm trong danh mục admin: 'thuoc' | 'vattu_hoachat'
+let dmColumnFilters = {};     // colKey -> Set các giá trị đang được chọn hiển thị (không có key = không lọc cột đó)
+let dmActiveFilterCol = null; // colKey đang mở popover lọc
+let dmFilterPopoverValues = []; // danh sách giá trị khả dụng của cột đang mở popover (đã lọc theo các cột khác)
 let editingCatalogId = null;  // id mặt hàng đang sửa trong danh mục (null = đang ở chế độ thêm mới)
 let orderDraft = { thuoc: {}, vattu_hoachat: {} };     // loai -> catalogId -> {soLuong, ghiChu}
 let newItemRows = { thuoc: [], vattu_hoachat: [] };    // loai -> [{...fields, soLuong, ghiChu}]
@@ -655,8 +702,8 @@ async function addCatalogItem(){
   FIELD_SCHEMA[loai].forEach(f=>{
     obj[f.key] = (document.getElementById('dmField_'+f.key).value || '').trim();
   });
-  if(!tenHienThi(loai, obj)){
-    showToast('Vui lòng nhập ' + FIELD_SCHEMA[loai][ loai==='thuoc'?1:0 ].label.toLowerCase() + '.', true);
+  if(!FIELD_SCHEMA[loai].some(f => obj[f.key])){
+    showToast('Vui lòng nhập ít nhất một thông tin mô tả (VD: Hoạt chất).', true);
     return;
   }
   if(editingCatalogId){
@@ -687,7 +734,7 @@ function editCatalogItem(id){
   document.getElementById('dmCancelEditBtn').style.display = 'inline-block';
   const banner = document.getElementById('dmEditBanner');
   banner.style.display = 'block';
-  banner.textContent = `✎ Đang sửa: ${tenHienThi(loai, c)}`;
+  banner.textContent = `✎ Đang sửa: ${tenHienThiHienThi(loai, c)}`;
   window.scrollTo({top:0, behavior:'smooth'});
 }
 function cancelEditCatalogItem(){
@@ -708,6 +755,8 @@ function switchDmFilter(loai){
     document.getElementById('dmEditBanner').style.display = 'none';
   }
   dmFilterLoai = loai;
+  dmColumnFilters = {};
+  dmCloseFilterPopover();
   document.querySelectorAll('#dmLoaiFilterSeg .seg-btn').forEach(b=>b.classList.toggle('active', b.dataset.loai===loai));
   document.getElementById('dmSearch').value = '';
   document.getElementById('uploadStatus').textContent = '';
@@ -779,7 +828,6 @@ async function handleExcelUpload(file){
     const dotNgayShared = document.getElementById('dmDotNgay').value || '';
 
     const dataRows = rows.slice(headerRowIdx+1);
-    const tenKey = tenChinhKey(loai);
     const toAdd = [];
     dataRows.forEach(r=>{
       if(!r || r.length===0) return;
@@ -790,11 +838,11 @@ async function handleExcelUpload(file){
       });
       obj.dot = dotShared;
       obj.dotNgay = dotNgayShared;
-      if(obj[tenKey]) toAdd.push(obj);
+      if(fields.some(f => obj[f.key])) toAdd.push(obj);
     });
 
     if(toAdd.length === 0){
-      statusEl.textContent = 'Không có dòng dữ liệu hợp lệ nào để nhập (kiểm tra cột "' + fields[fields[0].key===tenKey?0:1].label + '").';
+      statusEl.textContent = 'Không có dòng dữ liệu hợp lệ nào để nhập (kiểm tra các cột mô tả trong file, VD "' + fields[0].label + '").';
       return;
     }
 
@@ -831,17 +879,52 @@ function fmtDateStr(s){
   const [y,m,d] = s.split('-');
   return (y&&m&&d) ? `${d}/${m}/${y}` : s;
 }
+function dmFilterColumns(loai){
+  return [
+    ...FIELD_SCHEMA[loai].map(f=>({key:f.key, label:f.label})),
+    {key:'dotNgay', label:'Ngày đẩy'},
+    {key:'dot', label:'Nội dung/Đợt giai đoạn'},
+    {key:'trangThai', label:'Trạng thái'}
+  ];
+}
+function dmColumnValue(c, colKey){
+  if(colKey === 'trangThai') return c.active !== false ? 'Đang dùng' : 'Ngừng';
+  if(colKey === 'dotNgay') return c.dotNgay ? fmtDateStr(c.dotNgay) : '';
+  return c[colKey] || '';
+}
+// Trả về các dòng thỏa mãn: đúng loại + ô tìm kiếm + toàn bộ bộ lọc cột (trừ cột excludeCol, dùng để tính danh sách giá trị khả dụng cho chính cột đó)
+function dmRowsPassingFilters(loai, q, showInactive, excludeCol){
+  const fields = FIELD_SCHEMA[loai];
+  return catalog.filter(c=>{
+    if((c.loaiDanhMuc||'thuoc') !== loai) return false;
+    if(!showInactive && c.active === false) return false;
+    if(q && !(fields.some(f => (c[f.key]||'').toLowerCase().includes(q)) || (c.dot||'').toLowerCase().includes(q))) return false;
+    for(const colKey in dmColumnFilters){
+      if(colKey === excludeCol) continue;
+      const valSet = dmColumnFilters[colKey];
+      if(!valSet || valSet.size === 0) continue;
+      if(!valSet.has(dmColumnValue(c, colKey))) return false;
+    }
+    return true;
+  });
+}
 function renderCatalogAdmin(){
   const loai = dmFilterLoai;
   const q = (document.getElementById('dmSearch')?.value || '').toLowerCase();
+  const showInactive = document.getElementById('dmShowInactive')?.checked;
   const head = document.getElementById('dmTableHead');
   const body = document.getElementById('catalogAdminBody');
   const fields = FIELD_SCHEMA[loai];
-  head.innerHTML = `<tr><th class="stt-col">STT</th>${fields.map(f=>`<th>${f.label}</th>`).join('')}<th>Ngày đẩy</th><th>Nội dung/Đợt giai đoạn</th><th>Trạng thái</th><th style="width:190px"></th></tr>`;
-  const rows = catalog.filter(c =>
-    (c.loaiDanhMuc||'thuoc')===loai &&
-    (!q || fields.some(f => (c[f.key]||'').toLowerCase().includes(q)) || (c.dot||'').toLowerCase().includes(q))
-  );
+  const cols = dmFilterColumns(loai);
+  head.innerHTML = `<tr><th class="stt-col">STT</th>${cols.map(col=>{
+    const isActive = dmColumnFilters[col.key] && dmColumnFilters[col.key].size > 0;
+    return `<th>${col.label}<button class="dm-filter-btn${isActive?' active':''}" title="Lọc theo ${esc(col.label)}" onclick="openColumnFilter(event,'${col.key}',${esc(JSON.stringify(col.label))})">▾</button></th>`;
+  }).join('')}<th style="width:190px"></th></tr>`;
+
+  const allOfLoai = catalog.filter(c => (c.loaiDanhMuc||'thuoc')===loai);
+  const hiddenInactiveCount = showInactive ? 0 : allOfLoai.filter(c=>c.active===false).length;
+  const rows = dmRowsPassingFilters(loai, q, showInactive, null);
+
   body.innerHTML = rows.length ? rows.map((c,i)=>`
     <tr>
       <td class="stt-col">${i+1}</td>
@@ -854,9 +937,107 @@ function renderCatalogAdmin(){
         <button class="btn secondary small" onclick="toggleCatalogActive('${c.id}', ${c.active!==false})">${c.active!==false?'Ngừng':'Kích hoạt'}</button>
         <button class="btn danger small" onclick="deleteCatalogItem('${c.id}')">Xóa</button>
       </td>
-    </tr>`).join('') : `<tr><td colspan="${fields.length+5}" class="empty">Chưa có hàng hóa nào trong danh mục ${LOAI_LABEL[loai].toLowerCase()}.</td></tr>`;
+    </tr>`).join('') : `<tr><td colspan="${fields.length+5}" class="empty">Không có mặt hàng nào phù hợp bộ lọc hiện tại.</td></tr>`;
+  const noteEl = document.getElementById('dmHiddenNote');
+  if(noteEl){
+    noteEl.textContent = hiddenInactiveCount > 0
+      ? `Đang ẩn ${hiddenInactiveCount} mặt hàng đã ngừng — tick "Hiện cả mặt hàng đã ngừng" ở trên để xem lại.`
+      : '';
+  }
   renderDotToolbar(loai);
 }
+
+/* ============ LỌC THEO CỘT (AutoFilter) — DANH MỤC HÀNG HÓA ============ */
+function openColumnFilter(event, colKey, label){
+  event.stopPropagation();
+  const loai = dmFilterLoai;
+  const q = (document.getElementById('dmSearch')?.value || '').toLowerCase();
+  const showInactive = document.getElementById('dmShowInactive')?.checked;
+  const rows = dmRowsPassingFilters(loai, q, showInactive, colKey);
+  dmFilterPopoverValues = Array.from(new Set(rows.map(c=>dmColumnValue(c, colKey)))).filter(v=>v!=='').sort((a,b)=>a.localeCompare(b,'vi'));
+  dmActiveFilterCol = colKey;
+
+  const pop = document.getElementById('dmFilterPopover');
+  const btn = event.currentTarget;
+  const rect = btn.getBoundingClientRect();
+  const POP_W = 290, POP_H_EST = 380, MARGIN = 10;
+
+  let left = rect.left;
+  if(left + POP_W > window.innerWidth - MARGIN) left = Math.max(MARGIN, window.innerWidth - POP_W - MARGIN);
+  pop.style.left = left + 'px';
+
+  const spaceBelow = window.innerHeight - rect.bottom;
+  if(spaceBelow < POP_H_EST && rect.top > POP_H_EST){
+    // Không đủ chỗ phía dưới -> lật lên trên nút bấm
+    pop.style.top = 'auto';
+    pop.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+  } else {
+    pop.style.bottom = 'auto';
+    pop.style.top = (rect.bottom + 4) + 'px';
+  }
+
+  pop.classList.add('open');
+  document.getElementById('fpSearch').value = '';
+  renderFilterPopoverList();
+}
+function renderFilterPopoverList(){
+  const colKey = dmActiveFilterCol;
+  if(!colKey) return;
+  const q = (document.getElementById('fpSearch').value || '').toLowerCase();
+  const selected = dmColumnFilters[colKey]; // undefined = coi như tất cả đang được chọn
+  const list = document.getElementById('fpList');
+  const values = dmFilterPopoverValues.filter(v => !q || v.toLowerCase().includes(q));
+  list.innerHTML = values.length ? values.map((v,i)=>{
+    const checked = !selected || selected.has(v);
+    const cid = 'fpv_' + i;
+    return `<div class="fp-item">
+      <input type="checkbox" id="${cid}" ${checked?'checked':''} onchange="dmToggleFilterValue(${esc(JSON.stringify(v))}, this.checked)">
+      <label for="${cid}" title="${esc(v)}">${esc(v)}</label>
+    </div>`;
+  }).join('') : `<div class="hint" style="padding:6px 0;">Không có giá trị phù hợp.</div>`;
+}
+function dmToggleFilterValue(value, checked){
+  const colKey = dmActiveFilterCol;
+  if(!colKey) return;
+  if(!dmColumnFilters[colKey]){
+    // Chưa có bộ lọc -> khởi tạo từ toàn bộ giá trị đang khả dụng rồi bỏ giá trị vừa bỏ chọn
+    dmColumnFilters[colKey] = new Set(dmFilterPopoverValues);
+  }
+  if(checked) dmColumnFilters[colKey].add(value);
+  else dmColumnFilters[colKey].delete(value);
+  renderCatalogAdmin();
+}
+function fpSelectAll(select){
+  const colKey = dmActiveFilterCol;
+  if(!colKey) return;
+  const q = (document.getElementById('fpSearch').value || '').toLowerCase();
+  const visibleValues = dmFilterPopoverValues.filter(v => !q || v.toLowerCase().includes(q));
+  if(!dmColumnFilters[colKey]) dmColumnFilters[colKey] = new Set(dmFilterPopoverValues);
+  visibleValues.forEach(v=>{
+    if(select) dmColumnFilters[colKey].add(v);
+    else dmColumnFilters[colKey].delete(v);
+  });
+  renderFilterPopoverList();
+  renderCatalogAdmin();
+}
+function dmClearColumnFilter(){
+  const colKey = dmActiveFilterCol;
+  if(colKey) delete dmColumnFilters[colKey];
+  dmCloseFilterPopover();
+  renderCatalogAdmin();
+}
+function dmCloseFilterPopover(){
+  const pop = document.getElementById('dmFilterPopover');
+  if(pop) pop.classList.remove('open');
+  dmActiveFilterCol = null;
+}
+document.addEventListener('click', function(e){
+  const pop = document.getElementById('dmFilterPopover');
+  if(!pop || !pop.classList.contains('open')) return;
+  if(!pop.contains(e.target) && !e.target.classList.contains('dm-filter-btn')){
+    dmCloseFilterPopover();
+  }
+});
 function renderDotToolbar(loai){
   const card = document.getElementById('dotToolbarCard');
   const el = document.getElementById('dotToolbar');
@@ -920,6 +1101,22 @@ async function deleteDotBatch(loai, dot){
     await batch.commit();
   }
   showToast(`Đã xóa ${targets.length} mặt hàng thuộc đợt "${dot}" khỏi danh mục.`);
+}
+async function deleteAllCatalog(){
+  const loai = dmFilterLoai;
+  const targets = catalog.filter(c => (c.loaiDanhMuc||'thuoc')===loai);
+  if(targets.length === 0){ showToast('Danh mục đang trống, không có gì để xóa.', true); return; }
+  const confirmText = prompt(`Sắp xóa VĨNH VIỄN toàn bộ ${targets.length} mặt hàng trong danh mục ${LOAI_LABEL[loai]} (kể cả mặt hàng chưa gắn đợt nào). Không thể khôi phục.\n\nLưu ý: các phiếu dự trù đã gửi trước đó không bị ảnh hưởng (dữ liệu đã lưu độc lập trong từng phiếu).\n\nGõ chính xác "XOA" (không dấu) để xác nhận:`);
+  if(confirmText !== 'XOA') { if(confirmText !== null) showToast('Chưa xác nhận đúng, hủy thao tác.', true); return; }
+  const CHUNK = 400;
+  for(let i=0; i<targets.length; i+=CHUNK){
+    const batch = db.batch();
+    targets.slice(i, i+CHUNK).forEach(c=>{
+      batch.delete(db.collection('dutru_danhMucHangHoa').doc(c.id));
+    });
+    await batch.commit();
+  }
+  showToast(`Đã xóa toàn bộ ${targets.length} mặt hàng trong danh mục ${LOAI_LABEL[loai]}.`);
 }
 
 /* ============ TÀI KHOẢN KHOA (ADMIN) ============ */
@@ -1004,10 +1201,26 @@ function renderCatalogForOrder(){
     <tr>
       <td class="stt-col">${i+1}</td>
       ${fields.map(f=>`<td>${esc(c[f.key])}</td>`).join('')}
-      <td><input type="number" min="0" class="qty-input" value="${d.soLuong||''}" onchange="setOrderQty('${c.id}', this.value)"></td>
+      <td><input type="number" min="0" class="qty-input" value="${d.soLuong||''}" onchange="setOrderQty('${c.id}', this.value)" onkeydown="handleQtyKeydown(event, this)"></td>
       <td><input class="note-input" value="${esc(d.ghiChu||'')}" placeholder="Ghi chú" onchange="setOrderNote('${c.id}', this.value)"></td>
     </tr>`;
   }).join('') : `<tr><td colspan="${fields.length+3}" class="empty">Danh mục ${LOAI_LABEL[loai].toLowerCase()} chưa có hàng hóa phù hợp.</td></tr>`;
+}
+// Cho phép bấm Enter hoặc mũi tên lên/xuống để nhảy nhanh giữa các ô Số lượng theo hàng, giống thao tác trên Excel
+function handleQtyKeydown(e, input){
+  if(e.key === 'Enter' || e.key === 'ArrowDown'){
+    e.preventDefault();
+    const row = input.closest('tr');
+    const nextRow = row && row.nextElementSibling;
+    const nextInput = nextRow && nextRow.querySelector('.qty-input');
+    if(nextInput){ nextInput.focus(); nextInput.select(); }
+  } else if(e.key === 'ArrowUp'){
+    e.preventDefault();
+    const row = input.closest('tr');
+    const prevRow = row && row.previousElementSibling;
+    const prevInput = prevRow && prevRow.querySelector('.qty-input');
+    if(prevInput){ prevInput.focus(); prevInput.select(); }
+  }
 }
 function setOrderQty(id, val){
   const draft = orderDraft[currentLoaiPhieu];
@@ -1043,7 +1256,7 @@ function renderNewItemRows(){
   body.innerHTML = rows.map((r,i)=>`
     <tr class="new-item-row">
       ${fields.map(f=>`<td><input value="${esc(r[f.key])}" onchange="newItemRows['${loai}'][${i}]['${f.key}']=this.value" placeholder="${esc(f.placeholder)}"></td>`).join('')}
-      <td><input type="number" min="0" class="qty-input" value="${esc(r.soLuong)}" onchange="newItemRows['${loai}'][${i}].soLuong=this.value"></td>
+      <td><input type="number" min="0" class="qty-input" value="${esc(r.soLuong)}" onchange="newItemRows['${loai}'][${i}].soLuong=this.value" onkeydown="handleQtyKeydown(event, this)"></td>
       <td><input class="note-input" value="${esc(r.ghiChu)}" onchange="newItemRows['${loai}'][${i}].ghiChu=this.value" placeholder="Ghi chú"></td>
       <td><button class="btn danger small" onclick="removeNewItemRow(${i})">✕</button></td>
     </tr>`).join('');
@@ -1477,11 +1690,13 @@ function printPhieu(id){
   const p = phieuList.find(x=>x.id===id);
   if(!p) return;
   const loai = p.loaiPhieu||'thuoc';
-  const fields = FIELD_SCHEMA[loai];
+  const allFields = FIELD_SCHEMA[loai];
   const allItems = [
     ...(p.items||[]),
     ...(p.newItems||[]).filter(it=>it.status!=='tu_choi')
   ];
+  // Bỏ khỏi bản in những cột mà TẤT CẢ các dòng đều không có dữ liệu (VD "Tên thuốc" nếu không dòng nào điền)
+  const fields = allFields.filter(f => allItems.some(it => (it[f.key]||'').toString().trim()));
 
   // Tóm tắt Đợt/Giai đoạn (giống logic hiển thị trên thẻ phiếu)
   const dotEntries = new Map();
