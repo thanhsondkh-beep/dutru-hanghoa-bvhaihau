@@ -888,6 +888,7 @@ function renderDotToolbar(loai){
       <div>
         <button class="btn secondary small" onclick="setDotActive('${loai}', ${esc(JSON.stringify(dot))}, true)">Kích hoạt cả đợt</button>
         <button class="btn danger small" onclick="setDotActive('${loai}', ${esc(JSON.stringify(dot))}, false)">Ngừng cả đợt</button>
+        <button class="btn danger small" onclick="deleteDotBatch('${loai}', ${esc(JSON.stringify(dot))})">🗑 Xóa cả đợt</button>
       </div>
     </div>`;
   }).join('');
@@ -905,6 +906,20 @@ async function setDotActive(loai, dot, active){
     await batch.commit();
   }
   showToast(`Đã ${active?'kích hoạt':'ngừng'} ${targets.length} mặt hàng thuộc đợt "${dot}".`);
+}
+async function deleteDotBatch(loai, dot){
+  const targets = catalog.filter(c => (c.loaiDanhMuc||'thuoc')===loai && c.dot===dot);
+  if(targets.length === 0) return;
+  if(!confirm(`Xóa VĨNH VIỄN toàn bộ ${targets.length} mặt hàng thuộc đợt "${dot}"? Không thể khôi phục.\n\nLưu ý: các phiếu dự trù đã gửi trước đó vẫn giữ nguyên dữ liệu mặt hàng (đã lưu độc lập trong phiếu), chỉ danh mục gốc bị xóa.`)) return;
+  const CHUNK = 400;
+  for(let i=0; i<targets.length; i+=CHUNK){
+    const batch = db.batch();
+    targets.slice(i, i+CHUNK).forEach(c=>{
+      batch.delete(db.collection('dutru_danhMucHangHoa').doc(c.id));
+    });
+    await batch.commit();
+  }
+  showToast(`Đã xóa ${targets.length} mặt hàng thuộc đợt "${dot}" khỏi danh mục.`);
 }
 
 /* ============ TÀI KHOẢN KHOA (ADMIN) ============ */
@@ -1289,7 +1304,7 @@ function getTongHopFilters(){
 }
 function getTongHopFilteredRows(){
   const { loaiFilter, khoaFilter, from, to } = getTongHopFilters();
-  let rows = phieuList.filter(p => ['da_gui','da_duyet'].includes(p.trangThai||'da_gui'));
+  let rows = phieuList.filter(p => (p.trangThai||'da_gui') === 'da_duyet');
   if(loaiFilter) rows = rows.filter(p=>(p.loaiPhieu||'thuoc')===loaiFilter);
   if(khoaFilter) rows = rows.filter(p=>p.khoaUsername===khoaFilter);
   if(from) rows = rows.filter(p=>p.ngayTao && p.ngayTao.toDate() >= new Date(from));
@@ -1317,7 +1332,7 @@ function renderTongHopDanhMuc(){
     html += `
       <div class="card" style="overflow-x:auto;">
         <strong style="font-size:13px;">Danh mục tổng hợp — ${LOAI_LABEL[loai]}</strong>
-        <p class="hint" style="margin-top:2px;">Tổng số lượng dự trù theo từng khoa (tính từ phiếu đã gửi và đã duyệt, không tính phiếu/đề xuất bị từ chối).</p>
+        <p class="hint" style="margin-top:2px;">Tổng số lượng dự trù theo từng khoa (chỉ tính phiếu đã được Khoa Dược duyệt, không tính phiếu đang chờ duyệt hoặc bị từ chối).</p>
         <table style="margin-top:10px;min-width:600px;">
           <thead><tr><th>Danh mục hàng hóa</th>${khoaList.map(k=>`<th style="text-align:center;">${esc(k)}</th>`).join('')}<th style="text-align:center;">Tổng cộng</th></tr></thead>
           <tbody>${bodyRows}</tbody>
@@ -1427,7 +1442,7 @@ function phieuCardHtml(p, showKhoa, actionsHtml, showAdminActions){
   } else if(dotEntries.size>1){
     dotSummary = 'Đợt: ' + Array.from(dotEntries.keys()).join(', ');
   }
-  const printAction = (trangThai !== 'nhap') ? `<button class="btn secondary small" onclick="printPhieu('${p.id}')">🖨 In phiếu</button>` : '';
+  const printAction = (trangThai === 'da_duyet') ? `<button class="btn secondary small" onclick="printPhieu('${p.id}')">🖨 In phiếu</button>` : '';
   const ownDraftActions = (!showKhoa && trangThai==='nhap') ? `
     <button class="btn small" onclick="continueEditDraft('${loai}')">Tiếp tục chỉnh sửa</button>
     <button class="btn danger small" onclick="deleteDraft('${p.id}', '${loai}')">Xóa nháp</button>` : '';
