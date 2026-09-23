@@ -1742,6 +1742,22 @@ function toggleTcAdvanced(){
   box.style.display = showing ? 'none' : 'flex';
   btn.textContent = showing ? '+ Lọc thêm theo Nhóm/Đường dùng' : '− Ẩn bộ lọc Nhóm/Đường dùng';
 }
+// Chuẩn hóa tên hoạt chất để so khớp được các biến thể cách viết khác nhau của cùng 1 chất:
+// bỏ khoảng trắng/gạch ngang, bỏ tiền tố lập thể đứng riêng (N-, D-, L-, DL-), bỏ đuôi "-e" (kiểu Anh/Việt)
+// VD: "Acetyl leucin" / "Acetylleucin" / "N-Acetyl-dl-leucin" / "Acetylleucine" đều chuẩn hóa về "acetylleucin"
+function normHoatChatSearch(s){
+  return (s||'').toString().normalize('NFC').toLowerCase()
+    .split(/[\s\-]+/)
+    .filter(tok => tok && !['d','l','dl','n'].includes(tok))
+    .join('')
+    .replace(/e$/, '');
+}
+function matchesHoatChat(target, query){
+  const t = (target||'').toLowerCase();
+  const q = (query||'').toLowerCase();
+  if(t.includes(q)) return true; // khớp trực tiếp trước, nhanh và chính xác nhất
+  return normHoatChatSearch(target).includes(normHoatChatSearch(query)); // rồi mới thử khớp theo biến thể cách viết
+}
 function renderTraCuu(){
   const el = document.getElementById('tcResults');
   const totalEl = document.getElementById('tcTotal');
@@ -1760,7 +1776,7 @@ function renderTraCuu(){
   if(fNhomChung) rows = rows.filter(it=>(it.nhomChung||'').toLowerCase().includes(fNhomChung));
   if(fNhomChiTiet) rows = rows.filter(it=>(it.nhomChiTiet||'').toLowerCase().includes(fNhomChiTiet));
   if(fDuongDung) rows = rows.filter(it=>(it.tenDuongDung||'').toLowerCase().includes(fDuongDung));
-  if(fHoatChat) rows = rows.filter(it=>(it.tenHoatChat||'').toLowerCase().includes(fHoatChat));
+  if(fHoatChat) rows = rows.filter(it=>matchesHoatChat(it.tenHoatChat, fHoatChat));
   if(fTenThuoc) rows = rows.filter(it=>(it.tenHangHoa||'').toLowerCase().includes(fTenThuoc));
   if(fHamLuong) rows = rows.filter(it=>(it.hamLuong||'').toLowerCase().includes(fHamLuong));
 
