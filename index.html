@@ -273,6 +273,29 @@ tfoot td{background:#eaf3f1;font-weight:700;border-top:2px solid var(--line);}
   flex-direction:column;overflow:hidden;
 }
 #dmFilterPopover.open{display:flex;}
+.truncate-cell{
+  display:inline-block;
+  max-width:110px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  vertical-align:middle;
+  cursor:pointer;border-bottom:1px dotted #8ba39c;
+}
+#cellDetailPopover{
+  display:none;position:fixed;z-index:1100;
+  background:#12303d;color:#fff;font-size:12.5px;line-height:1.4;
+  padding:8px 12px;border-radius:6px;max-width:320px;
+  box-shadow:0 6px 20px rgba(0,0,0,.25);word-break:break-word;
+}
+#cellDetailPopover.open{display:block;}
+.scroll-x-table{ max-width:100%; }
+.top-scrollbar{
+  overflow-x:auto;
+  overflow-y:hidden;
+  height:14px;
+  margin-bottom:-2px;
+  max-width:100%;
+}
+.top-scrollbar > div{ height:1px; }
 #dmFilterPopover .fp-search{padding:10px;border-bottom:1px solid var(--line);}
 #dmFilterPopover .fp-search input{width:100%;padding:7px 10px;font-size:13px;border:1px solid var(--line);border-radius:6px;}
 #dmFilterPopover .fp-actions{display:flex;gap:6px;padding:8px 10px;border-bottom:1px solid var(--line);background:#fafcfb;}
@@ -326,27 +349,68 @@ tfoot td{background:#eaf3f1;font-weight:700;border-top:2px solid var(--line);}
       <button class="seg-btn" data-loai="vattu_hoachat" onclick="switchLoaiPhieu('vattu_hoachat')">Dự trù vật tư y tế, hóa chất</button>
     </div>
     <div class="draft-banner" id="draftBanner">📝 Đang có bản nháp lưu tạm cho loại phiếu này — anh có thể tiếp tục chỉnh sửa rồi gửi khi sẵn sàng.</div>
-    <div class="card">
-      <input class="searchBox" id="catalogSearch" placeholder="Tìm hàng hóa trong danh mục..." oninput="renderCatalogForOrder()">
-      <table>
-        <thead id="catalogOrderHead"></thead>
-        <tbody id="catalogOrderBody"></tbody>
-      </table>
-    </div>
-    <div class="card">
-      <div class="flex-between">
-        <strong style="font-size:13px;">Hàng đề xuất mới (ngoài danh mục)</strong>
-        <button class="btn secondary small" onclick="addNewItemRow()">+ Thêm dòng</button>
+
+    <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;">
+      <div style="flex:1;min-width:0;">
+        <div class="card">
+          <input class="searchBox" id="catalogSearch" placeholder="Tìm hàng hóa trong danh mục..." oninput="renderCatalogForOrder()">
+          <div class="scroll-x-table" style="overflow-x:auto;">
+            <table>
+              <thead id="catalogOrderHead"></thead>
+              <tbody id="catalogOrderBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="flex-between">
+            <strong style="font-size:13px;">Hàng đề xuất mới (ngoài danh mục)</strong>
+            <button class="btn secondary small" onclick="addNewItemRow()">+ Thêm dòng</button>
+          </div>
+          <p class="hint">Các dòng này sẽ được gửi cho Khoa Dược duyệt riêng, không tự động vào danh mục.</p>
+          <div class="scroll-x-table" style="overflow-x:auto;">
+            <table style="margin-top:10px;">
+              <thead id="newItemsHead"></thead>
+              <tbody id="newItemsBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <button class="btn secondary" onclick="saveDraft()" style="margin-right:8px;">💾 Lưu lại</button>
+        <button class="btn" onclick="submitPhieu()">Gửi phiếu dự trù</button>
+        <span class="errMsg" id="phieuErr"></span>
       </div>
-      <p class="hint">Các dòng này sẽ được gửi cho Khoa Dược duyệt riêng, không tự động vào danh mục.</p>
-      <table style="margin-top:10px;">
-        <thead id="newItemsHead"></thead>
-        <tbody id="newItemsBody"></tbody>
-      </table>
+
+      <div style="width:320px;flex-shrink:0;position:sticky;top:12px;">
+        <div class="card">
+          <strong style="font-size:13px;">🔎 Tra cứu số lượng đã dùng</strong>
+          <p class="hint" style="margin-top:2px;">Tìm theo nhóm/hoạt chất/tên thuốc để tham khảo số đã dùng kỳ gần nhất, làm căn cứ điền số lượng dự trù.</p>
+          <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
+            <div><label style="font-size:12px;">Tên hoạt chất</label><input id="tcHoatChat" placeholder="VD: Paracetamol" oninput="renderTraCuu()"></div>
+            <div><label style="font-size:12px;">Tên thuốc</label><input id="tcTenThuoc" placeholder="VD: Hapacol" oninput="renderTraCuu()"></div>
+            <div><label style="font-size:12px;">Hàm lượng</label><input id="tcHamLuong" placeholder="VD: 500mg" oninput="renderTraCuu()"></div>
+            <button type="button" class="btn secondary small" id="tcAdvancedToggle" onclick="toggleTcAdvanced()" style="align-self:flex-start;">+ Lọc thêm theo Nhóm/Đường dùng</button>
+            <div id="tcAdvancedFilters" style="display:none;flex-direction:column;gap:8px;">
+              <div>
+                <label style="font-size:12px;">Nhóm chung</label>
+                <input id="tcNhomChung" list="tcNhomChungList" placeholder="Gõ hoặc chọn..." oninput="renderTraCuu()">
+                <datalist id="tcNhomChungList"></datalist>
+              </div>
+              <div>
+                <label style="font-size:12px;">Nhóm chi tiết</label>
+                <input id="tcNhomChiTiet" list="tcNhomChiTietList" placeholder="Gõ hoặc chọn..." oninput="renderTraCuu()">
+                <datalist id="tcNhomChiTietList"></datalist>
+              </div>
+              <div>
+                <label style="font-size:12px;">Đường dùng</label>
+                <input id="tcDuongDung" list="tcDuongDungList" placeholder="Gõ hoặc chọn..." oninput="renderTraCuu()">
+                <datalist id="tcDuongDungList"></datalist>
+              </div>
+            </div>
+          </div>
+          <div id="tcTotal" style="margin-top:10px;"></div>
+          <div id="tcResults" style="margin-top:8px;max-height:420px;overflow-y:auto;"></div>
+        </div>
+      </div>
     </div>
-    <button class="btn secondary" onclick="saveDraft()" style="margin-right:8px;">💾 Lưu lại</button>
-    <button class="btn" onclick="submitPhieu()">Gửi phiếu dự trù</button>
-    <span class="errMsg" id="phieuErr"></span>
   </div>
 
   <!-- KHOA: Lịch sử phiếu -->
@@ -401,10 +465,12 @@ tfoot td{background:#eaf3f1;font-weight:700;border-top:2px solid var(--line);}
         </label>
         <button class="btn danger small" onclick="deleteAllCatalog()">🗑 Xóa tất cả</button>
       </div>
-      <table style="margin-top:12px;">
-        <thead id="dmTableHead"></thead>
-        <tbody id="catalogAdminBody"></tbody>
-      </table>
+      <div class="scroll-x-table" style="overflow-x:auto;" id="dmTableScroll">
+        <table style="margin-top:12px;">
+          <thead id="dmTableHead"></thead>
+          <tbody id="catalogAdminBody"></tbody>
+        </table>
+      </div>
       <div id="dmHiddenNote" class="hint" style="margin-top:8px;"></div>
     </div>
   </div>
@@ -459,6 +525,65 @@ tfoot td{background:#eaf3f1;font-weight:700;border-top:2px solid var(--line);}
     <div id="tongHopDanhMucContainer"></div>
   </div>
 
+  <!-- ADMIN: Lịch sử sử dụng -->
+  <div class="panel" id="panel-sudung">
+    <h2>Lịch sử sử dụng</h2>
+    <p class="desc">Tải lên danh mục thuốc/vật tư gốc của bệnh viện làm nền tra cứu, sau đó bổ sung "Bảng kê xuất" của từng khoa/kho — hệ thống nối dữ liệu qua Mã BV để tính số lượng đã dùng, làm căn cứ cho các khoa dự trù.</p>
+
+    <div class="card">
+      <div class="flex-between" style="flex-wrap:wrap;gap:10px;">
+        <div>
+          <strong style="font-size:13px;">① Danh mục thuốc/vật tư gốc</strong>
+          <p class="hint" style="margin-top:2px;">Tải nguyên trạng file danh mục xuất từ phần mềm quản lý dược (giữ đầy đủ cột: Mã BHYT, Nhóm chung/chi tiết, Mã BV, Số đăng ký...). Tải lại sẽ <strong>thay thế</strong> danh mục gốc hiện có.</p>
+        </div>
+        <label class="btn small" style="margin:0;cursor:pointer;">
+          ⬆ Tải danh mục gốc
+          <input type="file" id="sdGocUploadInput" accept=".xlsx,.xls" style="display:none;" onchange="handleGocUpload(this.files[0])">
+        </label>
+      </div>
+      <div id="sdGocStatus" class="hint" style="margin-top:8px;"></div>
+    </div>
+
+    <div class="card">
+      <div class="flex-between" style="flex-wrap:wrap;gap:10px;">
+        <div>
+          <strong style="font-size:13px;">② Bảng kê xuất theo khoa/kho</strong>
+          <p class="hint" style="margin-top:2px;">Tải lần lượt từng file — mỗi lần 1 khoa/kho (VD: Bảng kê xuất Khoa Nội, Bảng kê xuất Khoa Ngoại, Kho Ngoại trú...). Có thể tải nhiều file, không giới hạn số lượt.</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <select id="sdLoai">
+            <option value="thuoc">Thuốc</option>
+            <option value="vattu_hoachat">Vật tư y tế, hóa chất</option>
+          </select>
+          <select id="sdKhoa">
+            <option value="">Không thuộc khoa cụ thể (kho chung/ngoại trú)</option>
+          </select>
+          <label class="btn small" style="margin:0;cursor:pointer;">
+            ⬆ Thêm bảng kê xuất
+            <input type="file" id="sdUploadInput" accept=".xlsx,.xls" style="display:none;" onchange="handleUsageUpload(this.files[0])">
+          </label>
+        </div>
+      </div>
+      <div id="sdUploadStatus" class="hint" style="margin-top:8px;"></div>
+    </div>
+
+    <div id="sdReportsList"></div>
+
+    <div class="card scroll-x-table" style="overflow-x:auto;">
+      <div class="flex-between" style="flex-wrap:wrap;gap:10px;">
+        <strong style="font-size:13px;">③ Số lượng đã dùng theo khoa (đối chiếu với danh mục gốc)</strong>
+        <button class="btn secondary small" onclick="exportUsageMatrixExcel()">⬇ Xuất Excel</button>
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <div><label>Tìm nhanh</label><input class="searchBox" id="sdMatrixSearch" placeholder="Tên thuốc/hoạt chất/Mã BV..." oninput="renderUsageMatrix()" style="margin-bottom:0;"></div>
+        <div><label>Nhóm chung</label><select id="sdFilterNhomChung" onchange="renderUsageMatrix()"><option value="">Tất cả</option></select></div>
+        <div><label>Nhóm chi tiết</label><select id="sdFilterNhomChiTiet" onchange="renderUsageMatrix()"><option value="">Tất cả</option></select></div>
+        <div><label>Đường dùng</label><select id="sdFilterDuongDung" onchange="renderUsageMatrix()"><option value="">Tất cả</option></select></div>
+      </div>
+      <div id="sdMatrixContainer" style="margin-top:10px;"></div>
+    </div>
+  </div>
+
   <!-- ADMIN: Tất cả phiếu -->
   <div class="panel" id="panel-tatcaphieu">
     <h2>Tất cả phiếu dự trù</h2>
@@ -504,6 +629,7 @@ tfoot td{background:#eaf3f1;font-weight:700;border-top:2px solid var(--line);}
     <button class="btn small" onclick="dmCloseFilterPopover()">Đóng</button>
   </div>
 </div>
+<div id="cellDetailPopover"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
@@ -538,6 +664,20 @@ let editingCatalogId = null;  // id mặt hàng đang sửa trong danh mục (nu
 let orderDraft = { thuoc: {}, vattu_hoachat: {} };     // loai -> catalogId -> {soLuong, ghiChu}
 let newItemRows = { thuoc: [], vattu_hoachat: [] };    // loai -> [{...fields, soLuong, ghiChu}]
 let currentDraftId = { thuoc: null, vattu_hoachat: null }; // id phiếu nháp (trangThai='nhap') đang mở, nếu có
+let usageReports = []; // các bảng kê xuất (lịch sử sử dụng) đã tải lên, dùng chung cho cả admin và khoa
+let danhMucGoc = [];      // danh mục thuốc/vật tư gốc (giữ nguyên cột như file bệnh viện xuất ra)
+let danhMucGocMeta = null; // {updatedAt, soLuong} của lần tải gốc gần nhất
+const GOC_COLUMNS = [
+  { key:'tenHoatChat', label:'Tên hoạt chất' },
+  { key:'maBHYT',      label:'Mã BHYT' },
+  { key:'nhomChung',   label:'Nhóm chung' },
+  { key:'nhomChiTiet', label:'Nhóm chi tiết' },
+  { key:'maBV',        label:'Mã BV' },
+  { key:'tenHangHoa',  label:'Tên hàng hóa' },
+  { key:'soDangKy',    label:'Số đăng ký' },
+  { key:'hamLuong',    label:'Hàm lượng' },
+  { key:'tenDuongDung',label:'Tên đường dùng' }
+];
 const LOAI_LABEL = { thuoc: 'Thuốc', vattu_hoachat: 'Vật tư y tế, hóa chất' };
 const DOT_DOT_XUAT = 'Dự trù đột xuất'; // nhãn "đợt" ảo dùng cho hàng đề xuất mới ngoài danh mục (không thuộc đợt nào Dược đẩy lên)
 const TRANGTHAI_LABEL = { nhap:'Đang soạn (nháp)', da_gui:'Đã gửi - chờ duyệt', da_duyet:'Đã duyệt', tu_choi:'Từ chối' };
@@ -551,15 +691,26 @@ const FIELD_SCHEMA = {
     { key:'duongDung',       label:'Đường dùng',           placeholder:'Uống, tiêm, truyền...' },
     { key:'dangBaoChe',      label:'Dạng bào chế',         placeholder:'Viên nén, viên nang...' },
     { key:'nongDoHamLuong',  label:'Nồng độ/Hàm lượng',    placeholder:'VD: 500mg' },
-    { key:'donViTinh',       label:'ĐVT',                  placeholder:'Viên, ống, lọ, vỉ...' }
+    { key:'donViTinh',       label:'ĐVT',                  placeholder:'Viên, ống, lọ, vỉ...' },
+    { key:'maBV',            label:'Mã BV',                placeholder:'Mã hàng nội bộ bệnh viện' }
   ],
   vattu_hoachat: [
     { key:'tenHangHoa',      label:'Tên hàng hóa',         placeholder:'VD: Bơm tiêm 5ml' },
     { key:'cauHinhKyThuat',  label:'Cấu hình kỹ thuật',    placeholder:'Quy cách, thông số...' },
     { key:'hangSanXuat',     label:'Hãng sản xuất',        placeholder:'' },
     { key:'nuocSanXuat',     label:'Nước sản xuất',        placeholder:'' },
-    { key:'donViTinh',       label:'ĐVT',                  placeholder:'Cái, hộp, chai, bộ...' }
+    { key:'donViTinh',       label:'ĐVT',                  placeholder:'Cái, hộp, chai, bộ...' },
+    { key:'maBV',            label:'Mã BV',                placeholder:'Mã hàng nội bộ bệnh viện' }
   ]
+};
+// Các tên cột thay thế thường gặp trong file Excel thực tế của bệnh viện, để nhận diện linh hoạt khi tải lên
+const FIELD_ALIASES = {
+  hoatChat: ['tên hoạt chất'],
+  tenThuoc: ['tên hàng hóa', 'tên biệt dược'],
+  duongDung: ['tên đường dùng'],
+  nongDoHamLuong: ['hàm lượng', 'nồng độ'],
+  donViTinh: ['đơn vị tính'],
+  maBV: ['mã số', 'mã hàng', 'mã hàng bv']
 };
 function tenChinhKey(loai){ return FIELD_SCHEMA[loai][ loai==='thuoc' ? 1 : 0 ].key; } // tenThuoc | tenHangHoa
 function tenHienThi(loai, obj){ return obj[tenChinhKey(loai)] || ''; }
@@ -586,6 +737,28 @@ function fmtDate(ts){
 }
 function esc(s){
   return (s||'').toString().replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+// Thêm 1 thanh cuộn ngang mảnh ở PHÍA TRÊN các bảng rộng (class "scroll-x-table"), đồng bộ với thanh cuộn gốc của bảng —
+// giúp kéo ngang được ngay mà không phải cuộn xuống đáy bảng mới thấy thanh cuộn mặc định của trình duyệt.
+function enableTopScrollbars(){
+  document.querySelectorAll('.scroll-x-table').forEach(box=>{
+    // Đã có thanh cuộn phụ từ trước (bảng tĩnh, chỉ đổi nội dung bên trong) -> chỉ cập nhật lại chiều rộng
+    if(box._topBar){
+      box._topBar.firstElementChild.style.width = box.scrollWidth + 'px';
+      box._topBar.style.display = box.scrollWidth > box.clientWidth + 2 ? 'block' : 'none';
+      return;
+    }
+    const bar = document.createElement('div');
+    bar.className = 'top-scrollbar';
+    const inner = document.createElement('div');
+    inner.style.width = box.scrollWidth + 'px';
+    bar.appendChild(inner);
+    box.parentNode.insertBefore(bar, box);
+    bar.style.display = box.scrollWidth > box.clientWidth + 2 ? 'block' : 'none';
+    bar.addEventListener('scroll', ()=>{ box.scrollLeft = bar.scrollLeft; });
+    box.addEventListener('scroll', ()=>{ bar.scrollLeft = box.scrollLeft; });
+    box._topBar = bar;
+  });
 }
 
 /* ============ LOGIN / LOGOUT ============ */
@@ -625,6 +798,8 @@ function initApp(){
     currentUser.role === 'admin' ? 'Khoa Dược (Quản trị)' : currentUser.tenKhoa;
   buildTabs();
   loadCatalog();
+  loadUsageReports();
+  loadDanhMucGoc();
   if(currentUser.role === 'admin'){
     loadAccounts();
     loadAllPhieu();
@@ -633,6 +808,7 @@ function initApp(){
     renderNewItemRows();
     loadDraftIfExists();
     loadOwnPhieu();
+    renderTraCuu();
   }
 }
 
@@ -645,6 +821,7 @@ function buildTabs(){
       ['taikhoan','Tài khoản khoa'],
       ['duyetphieu','Duyệt phiếu dự trù'],
       ['tonghop','Danh mục tổng hợp'],
+      ['sudung','Lịch sử sử dụng'],
       ['tatcaphieu','Tất cả phiếu dự trù'],
       ['duyet','Duyệt hàng đề xuất']
     ];
@@ -773,13 +950,13 @@ function downloadTemplate(){
   const vtFields = FIELD_SCHEMA.vattu_hoachat;
   const thuocRows = [
     ['STT', ...thuocFields.map(f=>f.label)],
-    [1,'Paracetamol','Paracetamol 500mg','Uống','Viên nén','500mg','Viên'],
-    [2,'Amoxicillin + Acid clavulanic','Augmentin 1g','Uống','Viên nén bao phim','875mg/125mg','Viên']
+    [1,'Paracetamol','Paracetamol 500mg','Uống','Viên nén','500mg','Viên','T24-001'],
+    [2,'Amoxicillin + Acid clavulanic','Augmentin 1g','Uống','Viên nén bao phim','875mg/125mg','Viên','T24-002']
   ];
   const vtRows = [
     ['STT', ...vtFields.map(f=>f.label)],
-    [1,'Bơm tiêm 5ml','Đầu Luer lock, vô khuẩn, dùng 1 lần','Vinahankook','Việt Nam','Cái'],
-    [2,'Găng tay khám vô khuẩn','Size M, latex, không bột','Top Glove','Malaysia','Hộp']
+    [1,'Bơm tiêm 5ml','Đầu Luer lock, vô khuẩn, dùng 1 lần','Vinahankook','Việt Nam','Cái','VT-001'],
+    [2,'Găng tay khám vô khuẩn','Size M, latex, không bột','Top Glove','Malaysia','Hộp','VT-002']
   ];
   const ws1 = XLSX.utils.aoa_to_sheet(thuocRows);
   ws1['!cols'] = [{wch:6}, ...thuocFields.map(()=>({wch:20}))];
@@ -807,12 +984,12 @@ async function handleExcelUpload(file){
     const rows = XLSX.utils.sheet_to_json(sheet, { header:1, defval:'' });
 
     const fields = FIELD_SCHEMA[loai];
-    const labels = fields.map(f=>normText(f.label));
-    // Tìm dòng tiêu đề: dòng có nhiều ô khớp nhãn cột nhất trong 6 dòng đầu
+    const allLabelsAndAliases = fields.flatMap(f => [normText(f.label), ...(FIELD_ALIASES[f.key]||[]).map(normText)]);
+    // Tìm dòng tiêu đề: dòng có nhiều ô khớp nhãn cột (hoặc alias) nhất trong 6 dòng đầu
     let headerRowIdx = -1, bestMatch = 0;
     for(let r=0; r<Math.min(6, rows.length); r++){
       const cells = rows[r].map(normText);
-      const matches = labels.filter(l => cells.includes(l)).length;
+      const matches = allLabelsAndAliases.filter(l => cells.includes(l)).length;
       if(matches > bestMatch){ bestMatch = matches; headerRowIdx = r; }
     }
     if(headerRowIdx === -1 || bestMatch === 0){
@@ -821,7 +998,16 @@ async function handleExcelUpload(file){
     }
     const headerCells = rows[headerRowIdx].map(normText);
     const colIndex = {};
-    fields.forEach(f=>{ colIndex[f.key] = headerCells.indexOf(normText(f.label)); });
+    fields.forEach(f=>{
+      let idx = headerCells.indexOf(normText(f.label));
+      if(idx < 0 && FIELD_ALIASES[f.key]){
+        for(const alias of FIELD_ALIASES[f.key]){
+          idx = headerCells.indexOf(normText(alias));
+          if(idx >= 0) break;
+        }
+      }
+      colIndex[f.key] = idx;
+    });
 
     // Đợt/Ngày lấy từ 2 ô nhập chung ở trên (áp dụng cho toàn bộ mặt hàng trong file này)
     const dotShared = (document.getElementById('dmDot').value || '').trim();
@@ -945,6 +1131,7 @@ function renderCatalogAdmin(){
       : '';
   }
   renderDotToolbar(loai);
+  enableTopScrollbars();
 }
 
 /* ============ LỌC THEO CỘT (AutoFilter) — DANH MỤC HÀNG HÓA ============ */
@@ -1033,11 +1220,26 @@ function dmCloseFilterPopover(){
 }
 document.addEventListener('click', function(e){
   const pop = document.getElementById('dmFilterPopover');
-  if(!pop || !pop.classList.contains('open')) return;
-  if(!pop.contains(e.target) && !e.target.classList.contains('dm-filter-btn')){
+  if(pop && pop.classList.contains('open') && !pop.contains(e.target) && !e.target.classList.contains('dm-filter-btn')){
     dmCloseFilterPopover();
   }
+  const cellPop = document.getElementById('cellDetailPopover');
+  if(cellPop && cellPop.classList.contains('open') && !e.target.classList.contains('truncate-cell')){
+    cellPop.classList.remove('open');
+  }
 });
+// Hiện popup nhỏ với nội dung đầy đủ khi bấm vào 1 ô đang bị cắt gọn (VD cột Hàm lượng dài)
+function showCellDetail(event, text){
+  event.stopPropagation();
+  const pop = document.getElementById('cellDetailPopover');
+  pop.textContent = text;
+  const rect = event.currentTarget.getBoundingClientRect();
+  let left = rect.left;
+  if(left + 320 > window.innerWidth - 10) left = window.innerWidth - 330;
+  pop.style.left = Math.max(10,left) + 'px';
+  pop.style.top = (rect.bottom + 4) + 'px';
+  pop.classList.add('open');
+}
 function renderDotToolbar(loai){
   const card = document.getElementById('dotToolbarCard');
   const el = document.getElementById('dotToolbar');
@@ -1119,6 +1321,435 @@ async function deleteAllCatalog(){
   showToast(`Đã xóa toàn bộ ${targets.length} mặt hàng trong danh mục ${LOAI_LABEL[loai]}.`);
 }
 
+/* ============ LỊCH SỬ SỬ DỤNG (Bảng kê xuất) ============ */
+function loadUsageReports(){
+  db.collection('dutru_lichSuSuDung').orderBy('uploadedAt','desc').onSnapshot(snap=>{
+    usageReports = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    if(currentUser.role === 'admin'){ renderUsageReports(); renderUsageMatrix(); }
+    if(currentUser.role !== 'admin') renderTraCuu(); // cập nhật số liệu tra cứu khi có báo cáo sử dụng mới
+  }, err=>console.error('loadUsageReports', err));
+}
+function loadDanhMucGoc(){
+  db.collection('dutru_danhMucGoc').doc('goc').onSnapshot(doc=>{
+    if(doc.exists){
+      const data = doc.data();
+      danhMucGoc = data.items || [];
+      danhMucGocMeta = data;
+    } else {
+      danhMucGoc = [];
+      danhMucGocMeta = null;
+    }
+    if(currentUser.role === 'admin'){ renderGocStatus(); renderUsageMatrix(); }
+    if(currentUser.role !== 'admin') renderTraCuu();
+  }, err=>console.error('loadDanhMucGoc', err));
+}
+function renderGocStatus(){
+  const el = document.getElementById('sdGocStatus');
+  if(!el) return;
+  el.textContent = danhMucGocMeta
+    ? `Đang dùng danh mục gốc: ${danhMucGoc.length} mặt hàng · cập nhật lúc ${fmtDate(danhMucGocMeta.updatedAt)}.`
+    : 'Chưa tải danh mục gốc nào — tải lên để làm nền đối chiếu số liệu sử dụng.';
+}
+async function handleGocUpload(file){
+  if(!file) return;
+  const statusEl = document.getElementById('sdGocStatus');
+  statusEl.textContent = 'Đang đọc file...';
+  try{
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type:'array', cellDates:true });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { header:1, defval:'' });
+
+    const labels = GOC_COLUMNS.map(c=>normText(c.label));
+    let headerRowIdx = -1, bestMatch = 0;
+    for(let r=0; r<Math.min(5, rows.length); r++){
+      const cells = rows[r].map(normText);
+      const m = labels.filter(l=>cells.includes(l)).length;
+      if(m > bestMatch){ bestMatch = m; headerRowIdx = r; }
+    }
+    if(headerRowIdx === -1){
+      statusEl.textContent = 'Không tìm thấy dòng tiêu đề phù hợp. Vui lòng dùng nguyên file danh mục xuất từ phần mềm quản lý dược.';
+      return;
+    }
+    const headerCells = rows[headerRowIdx].map(normText);
+    const colIndex = {};
+    GOC_COLUMNS.forEach(c=>{ colIndex[c.key] = headerCells.indexOf(normText(c.label)); });
+
+    const items = [];
+    for(let r=headerRowIdx+1; r<rows.length; r++){
+      const row = rows[r] || [];
+      const obj = {};
+      GOC_COLUMNS.forEach(c=>{
+        const idx = colIndex[c.key];
+        obj[c.key] = idx>=0 && row[idx]!=null ? String(row[idx]).normalize('NFC').trim() : '';
+      });
+      if(obj.maBV || obj.tenHangHoa) items.push(obj);
+    }
+    if(items.length === 0){
+      statusEl.textContent = 'Không đọc được dòng dữ liệu nào trong file.';
+      return;
+    }
+    await db.collection('dutru_danhMucGoc').doc('goc').set({
+      items,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    showToast(`Đã cập nhật danh mục gốc: ${items.length} mặt hàng.`);
+  }catch(e){
+    console.error(e);
+    if(e && e.code === 'permission-denied'){
+      statusEl.textContent = 'Bị từ chối quyền ghi vào Firestore (permission-denied) — kiểm tra lại đã thêm Rules cho collection "dutru_danhMucGoc" chưa.';
+    } else {
+      statusEl.textContent = 'Lỗi: ' + (e && e.message ? e.message : 'không đọc được file, kiểm tra định dạng và thử lại.');
+    }
+  }finally{
+    document.getElementById('sdGocUploadInput').value = '';
+  }
+}
+const USAGE_MATRIX_COLS = [
+  { key:'tenHoatChat', label:'Tên hoạt chất' },
+  { key:'nhomChung',   label:'Nhóm chung' },
+  { key:'nhomChiTiet', label:'Nhóm chi tiết' },
+  { key:'tenHangHoa',  label:'Tên hàng hóa' },
+  { key:'hamLuong',    label:'Hàm lượng', truncate:true },
+  { key:'tenDuongDung',label:'Tên đường dùng' },
+  { key:'maBV',        label:'Mã BV' }
+];
+function populateUsageMatrixFilterOptions(baseRows){
+  const build = key => Array.from(new Set(baseRows.map(it=>it[key]).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'vi'));
+  const configs = [
+    ['sdFilterNhomChung','nhomChung'],
+    ['sdFilterNhomChiTiet','nhomChiTiet'],
+    ['sdFilterDuongDung','tenDuongDung']
+  ];
+  configs.forEach(([id,key])=>{
+    const sel = document.getElementById(id);
+    if(!sel) return;
+    const currentVal = sel.value;
+    const values = build(key);
+    sel.innerHTML = '<option value="">Tất cả</option>' + values.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
+    sel.value = currentVal;
+  });
+}
+// Tính toán dữ liệu bảng đối chiếu — dùng chung cho cả hiển thị trên web và xuất Excel để không lệch số liệu
+function computeUsageMatrix(){
+  if(!danhMucGoc.length || !usageReports.length) return null;
+
+  const reportCols = usageReports.map(r=>({
+    id: r.id,
+    label: r.khoaChonTen
+      ? r.khoaChonTen
+      : ((r.khoaLinh && normText(r.khoaLinh) !== 'khong chon' && normText(r.khoaLinh) !== 'không chọn')
+        ? r.khoaLinh.replace(/\(\d+\)\s*$/,'').trim()
+        : (r.kho || 'Kho'))
+  }));
+
+  const usageByMaBV = {}; // maBV -> {reportId: soLuong}
+  usageReports.forEach(r=>{
+    (r.items||[]).forEach(it=>{
+      if(!it.maSo) return;
+      if(!usageByMaBV[it.maSo]) usageByMaBV[it.maSo] = {};
+      usageByMaBV[it.maSo][r.id] = (usageByMaBV[it.maSo][r.id]||0) + (it.soLuong||0);
+    });
+  });
+
+  const baseRows = danhMucGoc.filter(it => it.maBV && usageByMaBV[it.maBV]);
+  populateUsageMatrixFilterOptions(baseRows);
+
+  const q = (document.getElementById('sdMatrixSearch')?.value || '').toLowerCase();
+  const fNhomChung = document.getElementById('sdFilterNhomChung')?.value || '';
+  const fNhomChiTiet = document.getElementById('sdFilterNhomChiTiet')?.value || '';
+  const fDuongDung = document.getElementById('sdFilterDuongDung')?.value || '';
+
+  let rows = baseRows;
+  if(q) rows = rows.filter(it => (it.tenHangHoa||'').toLowerCase().includes(q) || (it.tenHoatChat||'').toLowerCase().includes(q) || (it.maBV||'').toLowerCase().includes(q));
+  if(fNhomChung) rows = rows.filter(it => it.nhomChung === fNhomChung);
+  if(fNhomChiTiet) rows = rows.filter(it => it.nhomChiTiet === fNhomChiTiet);
+  if(fDuongDung) rows = rows.filter(it => it.tenDuongDung === fDuongDung);
+
+  const colTotals = {}; reportCols.forEach(c=>colTotals[c.id]=0);
+  let grandTotal = 0;
+  const entries = rows.map(it=>{
+    const usage = usageByMaBV[it.maBV] || {};
+    let rowTotal = 0;
+    reportCols.forEach(c=>{ const v = usage[c.id]||0; colTotals[c.id]+=v; rowTotal+=v; });
+    grandTotal += rowTotal;
+    return { it, usage, rowTotal };
+  });
+
+  return { reportCols, entries, colTotals, grandTotal };
+}
+function renderUsageMatrix(){
+  const el = document.getElementById('sdMatrixContainer');
+  if(!el) return;
+  if(!danhMucGoc.length){ el.innerHTML = '<div class="empty">Chưa có danh mục gốc để đối chiếu — tải lên ở mục ① phía trên.</div>'; return; }
+  if(!usageReports.length){ el.innerHTML = '<div class="empty">Chưa có bảng kê xuất nào được tải lên — tải lên ở mục ② phía trên.</div>'; return; }
+
+  const data = computeUsageMatrix();
+  if(!data.entries.length){ el.innerHTML = '<div class="empty">Không có mặt hàng nào khớp bộ lọc hiện tại.</div>'; return; }
+
+  const { reportCols, entries, colTotals, grandTotal } = data;
+  const bodyRows = entries.map(({it, usage, rowTotal})=>{
+    const cells = reportCols.map(c=>`<td style="text-align:center;">${usage[c.id] || ''}</td>`).join('');
+    return `<tr>
+      ${USAGE_MATRIX_COLS.map(col=>{
+        const val = it[col.key] || '';
+        if(col.truncate && val){
+          return `<td><span class="truncate-cell" onclick="showCellDetail(event, ${esc(JSON.stringify(val))})">${esc(val)}</span></td>`;
+        }
+        return `<td>${esc(val)}</td>`;
+      }).join('')}
+      ${cells}
+      <td style="text-align:center;font-weight:600;">${rowTotal}</td>
+    </tr>`;
+  }).join('');
+  const footerCells = reportCols.map(c=>`<td style="text-align:center;">${colTotals[c.id]}</td>`).join('');
+
+  el.innerHTML = `<table style="min-width:900px;">
+      <thead><tr>${USAGE_MATRIX_COLS.map(col=>`<th>${col.label}</th>`).join('')}${reportCols.map(c=>`<th style="text-align:center;">${esc(c.label)}</th>`).join('')}<th style="text-align:center;">Tổng cộng</th></tr></thead>
+      <tbody>${bodyRows}</tbody>
+      <tfoot><tr><td colspan="${USAGE_MATRIX_COLS.length}">Tổng cộng</td>${footerCells}<td style="text-align:center;">${grandTotal}</td></tr></tfoot>
+    </table>`;
+  enableTopScrollbars();
+}
+function exportUsageMatrixExcel(){
+  const data = computeUsageMatrix();
+  if(!data || !data.entries.length){ showToast('Không có dữ liệu để xuất.', true); return; }
+  const { reportCols, entries } = data;
+  const headerRow = ['STT', ...USAGE_MATRIX_COLS.map(c=>c.label), ...reportCols.map(c=>c.label), 'Tổng cộng'];
+  const aoa = [headerRow];
+  entries.forEach(({it, usage, rowTotal}, i)=>{
+    aoa.push([i+1, ...USAGE_MATRIX_COLS.map(col=>it[col.key]||''), ...reportCols.map(c=>usage[c.id]||0), rowTotal]);
+  });
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [{wch:6}, ...USAGE_MATRIX_COLS.map(()=>({wch:20})), ...reportCols.map(()=>({wch:16})), {wch:12}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Su dung theo khoa');
+  XLSX.writeFile(wb, `SoLieuSuDung_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+// Chuẩn hóa "dd/mm/yyyy" hoặc "dd/mm/yyyy HH:mm" -> "yyyy-mm-dd"
+function parseVNDateToISO(s){
+  const m = (s||'').match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(!m) return '';
+  return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+}
+// Phân tích cấu trúc "Bảng kê xuất": vài dòng thông tin đầu (Kho/Khoa lĩnh/Khoảng ngày), 1 dòng tiêu đề bảng,
+// các dòng dữ liệu, kết thúc bằng dòng "Cộng tổng:"
+function parseUsageReport(rows){
+  let kho = '', khoaLinh = '', tuNgay = '', denNgay = '';
+  let headerRowIdx = -1;
+  const maxScan = Math.min(10, rows.length);
+  for(let r=0; r<maxScan; r++){
+    const row = rows[r] || [];
+    const c0 = normText(row[0]);
+    const c1 = (row[1]!=null ? String(row[1]) : '').trim();
+    if(c0.startsWith('kho') && !c0.includes('khoa') && c1) kho = c1;
+    if(c0.startsWith('khoa l')) khoaLinh = c1 || 'Không chọn';
+    if(c0.startsWith('tu ngay') || c0.startsWith('từ ngày')){
+      const full = (row[0]||'').toString();
+      const parts = full.split(/đến|den/i);
+      tuNgay = parseVNDateToISO(parts[0]||'');
+      denNgay = parseVNDateToISO(parts[1]||full);
+    }
+    if(c0 === 'stt'){ headerRowIdx = r; break; }
+  }
+  if(headerRowIdx === -1) return { error: 'Không tìm thấy dòng tiêu đề bảng (STT/Mã số/...). Vui lòng dùng đúng file "Bảng kê xuất" xuất từ phần mềm quản lý dược.' };
+
+  const items = [];
+  for(let r=headerRowIdx+1; r<rows.length; r++){
+    const row = rows[r] || [];
+    const c0 = normText(row[0]);
+    if(!c0 || c0.startsWith('cong') || c0.includes('cộng')) break; // hết bảng, tới dòng tổng cộng
+    const maSo = (row[1]!=null ? String(row[1]) : '').trim();
+    const ten = (row[2]!=null ? String(row[2]) : '').trim();
+    if(!maSo && !ten) continue;
+    items.push({
+      maSo,
+      tenHienThi: ten,
+      dvt: (row[3]!=null ? String(row[3]) : '').trim(),
+      soLuong: Number(row[4]) || 0,
+      donGia: Number(row[5]) || 0,
+      thanhTien: Number(row[6]) || 0
+    });
+  }
+  if(items.length === 0) return { error: 'Không đọc được dòng dữ liệu nào trong bảng.' };
+  return { kho, khoaLinh: khoaLinh || 'Không chọn', tuNgay, denNgay, items };
+}
+async function handleUsageUpload(file){
+  if(!file) return;
+  const loai = document.getElementById('sdLoai').value;
+  const khoaChonEl = document.getElementById('sdKhoa');
+  const khoaChon = khoaChonEl.value; // username khoa đã khai báo, rỗng nếu không gắn khoa cụ thể
+  const khoaChonTen = khoaChon ? khoaChonEl.options[khoaChonEl.selectedIndex].text : '';
+  const statusEl = document.getElementById('sdUploadStatus');
+  statusEl.textContent = 'Đang đọc file...';
+  try{
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type:'array', cellDates:true });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { header:1, defval:'' });
+    const parsed = parseUsageReport(rows);
+    if(parsed.error){ statusEl.textContent = parsed.error; return; }
+
+    await db.collection('dutru_lichSuSuDung').add({
+      loaiPhieu: loai,
+      kho: parsed.kho,
+      khoaLinh: parsed.khoaLinh,
+      khoaChon: khoaChon,       // username khoa đã khai báo trong Tài khoản khoa (nếu có chọn) — dùng để khớp chính xác
+      khoaChonTen: khoaChonTen, // tên khoa hiển thị tương ứng
+      tuNgay: parsed.tuNgay,
+      denNgay: parsed.denNgay,
+      items: parsed.items,
+      uploadedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    statusEl.textContent = `Đã tải lên "${parsed.kho || 'Kho'}" — ${khoaChonTen || parsed.khoaLinh} — ${parsed.items.length} mặt hàng (${fmtDateStr(parsed.tuNgay)} → ${fmtDateStr(parsed.denNgay)}).`;
+    showToast(`Đã nhập ${parsed.items.length} dòng sử dụng.`);
+  }catch(e){
+    console.error(e);
+    if(e && e.code === 'permission-denied'){
+      statusEl.textContent = 'Bị từ chối quyền ghi vào Firestore (permission-denied) — kiểm tra lại đã thêm Rules cho collection "dutru_lichSuSuDung" chưa.';
+    } else {
+      statusEl.textContent = 'Lỗi: ' + (e && e.message ? e.message : 'không đọc được file, kiểm tra định dạng và thử lại.');
+    }
+  }finally{
+    document.getElementById('sdUploadInput').value = '';
+  }
+}
+function renderUsageReports(){
+  const el = document.getElementById('sdReportsList');
+  if(!usageReports.length){ el.innerHTML = '<div class="card"><div class="empty">Chưa có báo cáo sử dụng nào được tải lên.</div></div>'; return; }
+  el.innerHTML = usageReports.map(r=>{
+    const total = (r.items||[]).reduce((s,it)=>s+(it.soLuong||0),0);
+    const khoaHienThi = r.khoaChonTen
+      ? `<span class="tag active" style="margin-left:8px;">Khoa: ${esc(r.khoaChonTen)}</span>`
+      : `<span class="hint" style="margin-left:8px;">Khoa lĩnh (dò từ file): ${esc(r.khoaLinh||'—')}</span>`;
+    return `
+    <div class="card">
+      <div class="flex-between">
+        <div>
+          <strong>${esc(r.kho || 'Kho không rõ tên')}</strong>
+          <span class="tag ${r.loaiPhieu||'thuoc'}" style="margin-left:8px;">${LOAI_LABEL[r.loaiPhieu||'thuoc']}</span>
+          ${khoaHienThi}
+        </div>
+        <button class="btn danger small" onclick="deleteUsageReport('${r.id}')">🗑 Xóa</button>
+      </div>
+      <p class="hint" style="margin-top:6px;">
+        Khoảng thời gian: ${r.tuNgay?fmtDateStr(r.tuNgay):'—'} → ${r.denNgay?fmtDateStr(r.denNgay):'—'}
+        · ${(r.items||[]).length} mặt hàng · Tổng số lượng: ${total.toLocaleString('vi-VN')}
+      </p>
+    </div>`;
+  }).join('');
+}
+async function deleteUsageReport(id){
+  if(!confirm('Xóa báo cáo sử dụng này? Khoa sẽ không còn thấy gợi ý "Đã dùng" dựa trên dữ liệu này nữa.')) return;
+  await db.collection('dutru_lichSuSuDung').doc(id).delete();
+  showToast('Đã xóa báo cáo sử dụng.');
+}
+// Tìm số lượng đã dùng gần nhất khớp với 1 mặt hàng trong danh mục (theo Mã BV) và đúng khoa đang đăng nhập
+function timSoLieuSuDungByMaBV(maBV, loaiPhieu){
+  if(!maBV || !currentUser || currentUser.role === 'admin') return null;
+  maBV = maBV.trim();
+  if(!maBV) return null;
+  const tenKhoaNorm = normText(currentUser.tenKhoa);
+  let best = null;
+  usageReports.forEach(r=>{
+    if((r.loaiPhieu||'thuoc') !== (loaiPhieu||'thuoc')) return;
+    let khopKhoa;
+    if(r.khoaChon){
+      // Báo cáo đã được gắn khoa tường minh khi tải lên -> so khớp chính xác theo username, không đoán mò
+      khopKhoa = r.khoaChon === currentUser.username;
+    } else {
+      // Báo cáo cũ (trước khi có tính năng chọn khoa) -> dò theo tên khoa ghi trong file, có thể không tuyệt đối chính xác
+      const khoaLinhNorm = normText(r.khoaLinh||'');
+      khopKhoa = khoaLinhNorm.includes(tenKhoaNorm) || tenKhoaNorm.includes(khoaLinhNorm.replace(/\(\d+\)\s*$/,'').trim());
+    }
+    if(!khopKhoa) return;
+    const item = (r.items||[]).find(it => (it.maSo||'').trim() === maBV);
+    if(!item) return;
+    if(!best || (r.tuNgay||'') > (best.report.tuNgay||'')){
+      best = { report: r, item };
+    }
+  });
+  if(!best) return null;
+  return { soLuong: best.item.soLuong, tuNgay: best.report.tuNgay, denNgay: best.report.denNgay };
+}
+function timSoLieuSuDung(catalogItem){
+  if(!catalogItem || !catalogItem.maBV) return null;
+  return timSoLieuSuDungByMaBV(catalogItem.maBV, catalogItem.loaiDanhMuc);
+}
+
+/* ============ TRA CỨU SỬ DỤNG (KHOA) — khung bên cạnh Tạo phiếu dự trù ============ */
+function populateTraCuuFilterOptions(){
+  const build = key => Array.from(new Set(danhMucGoc.map(it=>it[key]).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'vi'));
+  [['tcNhomChungList','nhomChung'], ['tcNhomChiTietList','nhomChiTiet'], ['tcDuongDungList','tenDuongDung']].forEach(([id,key])=>{
+    const dl = document.getElementById(id);
+    if(!dl) return;
+    dl.innerHTML = build(key).map(v=>`<option value="${esc(v)}"></option>`).join('');
+  });
+}
+function toggleTcAdvanced(){
+  const box = document.getElementById('tcAdvancedFilters');
+  const btn = document.getElementById('tcAdvancedToggle');
+  const showing = box.style.display === 'flex';
+  box.style.display = showing ? 'none' : 'flex';
+  btn.textContent = showing ? '+ Lọc thêm theo Nhóm/Đường dùng' : '− Ẩn bộ lọc Nhóm/Đường dùng';
+}
+function renderTraCuu(){
+  const el = document.getElementById('tcResults');
+  const totalEl = document.getElementById('tcTotal');
+  if(!el || !currentUser || currentUser.role === 'admin') return;
+  if(!danhMucGoc.length){ el.innerHTML = '<div class="hint">Khoa Dược chưa tải danh mục gốc để tra cứu.</div>'; if(totalEl) totalEl.innerHTML=''; return; }
+  populateTraCuuFilterOptions();
+
+  const fNhomChung = (document.getElementById('tcNhomChung').value||'').toLowerCase().trim();
+  const fNhomChiTiet = (document.getElementById('tcNhomChiTiet').value||'').toLowerCase().trim();
+  const fDuongDung = (document.getElementById('tcDuongDung').value||'').toLowerCase().trim();
+  const fHoatChat = (document.getElementById('tcHoatChat').value||'').toLowerCase().trim();
+  const fTenThuoc = (document.getElementById('tcTenThuoc').value||'').toLowerCase().trim();
+  const fHamLuong = (document.getElementById('tcHamLuong').value||'').toLowerCase().trim();
+
+  let rows = danhMucGoc;
+  if(fNhomChung) rows = rows.filter(it=>(it.nhomChung||'').toLowerCase().includes(fNhomChung));
+  if(fNhomChiTiet) rows = rows.filter(it=>(it.nhomChiTiet||'').toLowerCase().includes(fNhomChiTiet));
+  if(fDuongDung) rows = rows.filter(it=>(it.tenDuongDung||'').toLowerCase().includes(fDuongDung));
+  if(fHoatChat) rows = rows.filter(it=>(it.tenHoatChat||'').toLowerCase().includes(fHoatChat));
+  if(fTenThuoc) rows = rows.filter(it=>(it.tenHangHoa||'').toLowerCase().includes(fTenThuoc));
+  if(fHamLuong) rows = rows.filter(it=>(it.hamLuong||'').toLowerCase().includes(fHamLuong));
+
+  if(!fNhomChung && !fNhomChiTiet && !fDuongDung && !fHoatChat && !fTenThuoc && !fHamLuong){
+    el.innerHTML = '<div class="hint">Nhập/chọn ít nhất 1 điều kiện ở trên để tra cứu.</div>';
+    totalEl.innerHTML = '';
+    return;
+  }
+  if(!rows.length){ el.innerHTML = '<div class="hint">Không tìm thấy mặt hàng phù hợp.</div>'; totalEl.innerHTML = ''; return; }
+
+  // Tính tổng trên TOÀN BỘ kết quả khớp (trước khi giới hạn hiển thị), để không bị thiếu khi có nhiều hơn 100 dòng
+  let tongSoLuong = 0, soDongCoDuLieu = 0;
+  rows.forEach(it=>{
+    const su = timSoLieuSuDungByMaBV(it.maBV, 'thuoc');
+    if(su){ tongSoLuong += su.soLuong; soDongCoDuLieu++; }
+  });
+
+  const displayRows = rows.slice(0, 100); // giới hạn hiển thị chi tiết tránh quá dài
+  el.innerHTML = displayRows.map(it=>{
+    const su = timSoLieuSuDungByMaBV(it.maBV, 'thuoc');
+    const suLine = su
+      ? `<div style="margin-top:3px;"><span class="tag active">Đã dùng: ${su.soLuong.toLocaleString('vi-VN')}</span> <span class="hint">(kỳ ${fmtDateStr(su.tuNgay)} → ${fmtDateStr(su.denNgay)})</span></div>`
+      : `<div class="hint" style="margin-top:3px;">Chưa có số liệu sử dụng cho khoa.</div>`;
+    return `<div style="padding:8px 0;border-bottom:1px solid #f1f5f4;font-size:12.5px;">
+      <strong>${esc(it.tenHangHoa)}</strong>
+      <div class="hint">${esc(it.tenHoatChat)}${it.hamLuong?' · '+esc(it.hamLuong):''}</div>
+      ${suLine}
+    </div>`;
+  }).join('');
+  if(rows.length > 100){
+    el.innerHTML += `<div class="hint" style="padding-top:6px;">Chỉ hiện 100/${rows.length} mặt hàng đầu, thu hẹp thêm điều kiện lọc để xem đủ (Tổng cộng ở trên vẫn tính trên toàn bộ ${rows.length} mặt hàng khớp).</div>`;
+  }
+  totalEl.innerHTML = `<div style="border-top:2px solid var(--line);padding-top:8px;font-size:13px;">
+    <strong>Tổng cộng: ${tongSoLuong.toLocaleString('vi-VN')}</strong>
+    <span class="hint"> (${soDongCoDuLieu}/${rows.length} mặt hàng có số liệu sử dụng)</span>
+  </div>`;
+}
+
 /* ============ TÀI KHOẢN KHOA (ADMIN) ============ */
 function loadAccounts(){
   db.collection('dutru_taiKhoanKhoa').orderBy('tenKhoa').onSnapshot(snap=>{
@@ -1133,6 +1764,14 @@ function loadAccounts(){
       sel.innerHTML = options;
       sel.value = currentVal;
     });
+    const sdKhoaOptions = '<option value="">Không thuộc khoa cụ thể (kho chung/ngoại trú)</option>' +
+      accounts.filter(a=>a.role!=='admin').map(a=>`<option value="${esc(a.username)}">${esc(a.tenKhoa)}</option>`).join('');
+    const sdSel = document.getElementById('sdKhoa');
+    if(sdSel){
+      const currentVal = sdSel.value;
+      sdSel.innerHTML = sdKhoaOptions;
+      sdSel.value = currentVal;
+    }
   }, err=>console.error(err));
 }
 async function addAccount(){
@@ -1180,7 +1819,7 @@ function renderDraftBanner(){
   banner.style.display = currentDraftId[currentLoaiPhieu] ? 'block' : 'none';
 }
 function buildCatalogOrderHead(){
-  const fields = FIELD_SCHEMA[currentLoaiPhieu];
+  const fields = FIELD_SCHEMA[currentLoaiPhieu].filter(f=>f.key!=='maBV');
   document.getElementById('catalogOrderHead').innerHTML =
     `<tr><th class="stt-col">STT</th>${fields.map(f=>`<th>${f.label}</th>`).join('')}<th style="width:90px">Số lượng</th><th style="width:140px">Ghi chú</th></tr>`;
 }
@@ -1188,12 +1827,13 @@ function renderCatalogForOrder(){
   const loai = currentLoaiPhieu;
   const q = (document.getElementById('catalogSearch')?.value || '').toLowerCase();
   const body = document.getElementById('catalogOrderBody');
-  const fields = FIELD_SCHEMA[loai];
+  const allFields = FIELD_SCHEMA[loai];
+  const fields = allFields.filter(f=>f.key!=='maBV'); // Mã BV không hiện ở đây, xem chi tiết qua khung Tra cứu bên cạnh
   const draft = orderDraft[loai];
   const rows = catalog.filter(c =>
     c.active !== false &&
     (c.loaiDanhMuc||'thuoc') === loai &&
-    (!q || fields.some(f => (c[f.key]||'').toLowerCase().includes(q)))
+    (!q || allFields.some(f => (c[f.key]||'').toLowerCase().includes(q)))
   );
   body.innerHTML = rows.length ? rows.map((c,i)=>{
     const d = draft[c.id] || {};
@@ -1233,7 +1873,7 @@ function setOrderNote(id, val){
   draft[id].ghiChu = val;
 }
 function buildNewItemsHead(){
-  const fields = FIELD_SCHEMA[currentLoaiPhieu];
+  const fields = FIELD_SCHEMA[currentLoaiPhieu].filter(f=>f.key!=='maBV');
   document.getElementById('newItemsHead').innerHTML =
     `<tr>${fields.map(f=>`<th>${f.label}</th>`).join('')}<th style="width:90px">Số lượng</th><th style="width:140px">Ghi chú</th><th style="width:40px"></th></tr>`;
 }
@@ -1250,7 +1890,7 @@ function removeNewItemRow(i){
 }
 function renderNewItemRows(){
   const loai = currentLoaiPhieu;
-  const fields = FIELD_SCHEMA[loai];
+  const fields = FIELD_SCHEMA[loai].filter(f=>f.key!=='maBV');
   const body = document.getElementById('newItemsBody');
   const rows = newItemRows[loai];
   body.innerHTML = rows.map((r,i)=>`
@@ -1543,7 +2183,7 @@ function renderTongHopDanhMuc(){
     const footerCells = khoaList.map(k=>`<td style="text-align:center;">${khoaTotals[k]}</td>`).join('');
 
     html += `
-      <div class="card" style="overflow-x:auto;">
+      <div class="card scroll-x-table" style="overflow-x:auto;">
         <strong style="font-size:13px;">Danh mục tổng hợp — ${LOAI_LABEL[loai]}</strong>
         <p class="hint" style="margin-top:2px;">Tổng số lượng dự trù theo từng khoa (chỉ tính phiếu đã được Khoa Dược duyệt, không tính phiếu đang chờ duyệt hoặc bị từ chối).</p>
         <table style="margin-top:10px;min-width:600px;">
@@ -1554,6 +2194,7 @@ function renderTongHopDanhMuc(){
       </div>`;
   });
   el.innerHTML = html || '<div class="card"><div class="empty">Chưa có dữ liệu để tổng hợp.</div></div>';
+  enableTopScrollbars();
 }
 function exportTongHopExcel(){
   const { loaiFilter, dotFilter } = getTongHopFilters();
