@@ -459,6 +459,7 @@ tfoot td{background:#eaf3f1;font-weight:700;border-top:2px solid var(--line);}
     <div class="card">
       <div class="flex-between" style="flex-wrap:wrap;gap:10px;">
         <input class="searchBox" id="dmSearch" placeholder="Tìm trong danh mục (tên, đợt/giai đoạn...)" oninput="dmCloseFilterPopover(); renderCatalogAdmin()" style="flex:1;min-width:220px;margin-bottom:0;">
+        <select id="dmSortSelect" onchange="onDmSortChange()"></select>
         <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:#3d5a53;white-space:nowrap;">
           <input type="checkbox" id="dmShowInactive" onchange="dmCloseFilterPopover(); renderCatalogAdmin()">
           Hiện cả mặt hàng đã ngừng
@@ -657,6 +658,7 @@ let accounts = [];       // taiKhoanKhoa
 let phieuList = [];      // phieuDuTru (của khoa hiện tại hoặc tất cả nếu admin)
 let currentLoaiPhieu = 'thuoc'; // loại phiếu đang tạo: 'thuoc' | 'vattu_hoachat'
 let dmFilterLoai = 'thuoc';   // loại đang xem/thêm trong danh mục admin: 'thuoc' | 'vattu_hoachat'
+let sapXepConfig = { thuoc: null, vattu_hoachat: null }; // cấu hình sắp xếp danh mục dùng chung giữa Dược và khoa: {field, dir} hoặc null = mặc định
 let dmColumnFilters = {};     // colKey -> Set các giá trị đang được chọn hiển thị (không có key = không lọc cột đó)
 let dmActiveFilterCol = null; // colKey đang mở popover lọc
 let dmFilterPopoverValues = []; // danh sách giá trị khả dụng của cột đang mở popover (đã lọc theo các cột khác)
@@ -800,6 +802,7 @@ function initApp(){
   loadCatalog();
   loadUsageReports();
   loadDanhMucGoc();
+  loadSapXepConfig();
   if(currentUser.role === 'admin'){
     loadAccounts();
     loadAllPhieu();
@@ -938,6 +941,7 @@ function switchDmFilter(loai){
   document.getElementById('dmSearch').value = '';
   document.getElementById('uploadStatus').textContent = '';
   renderDmForm();
+  buildDmSortOptions();
   renderCatalogAdmin();
 }
 
@@ -1094,6 +1098,51 @@ function dmRowsPassingFilters(loai, q, showInactive, excludeCol){
     return true;
   });
 }
+/* ============ SẮP XẾP DANH MỤC (dùng chung giữa Dược và khoa) ============ */
+const DM_SORT_OPTIONS = {
+  thuoc: [
+    { value:'', label:'Mặc định' },
+    { value:'hoatChat|asc',  label:'Tên hoạt chất (A → Z)' },
+    { value:'hoatChat|desc', label:'Tên hoạt chất (Z → A)' },
+    { value:'tenThuoc|asc',  label:'Tên thuốc (A → Z)' },
+    { value:'tenThuoc|desc', label:'Tên thuốc (Z → A)' }
+  ],
+  vattu_hoachat: [
+    { value:'', label:'Mặc định' },
+    { value:'tenHangHoa|asc',  label:'Tên hàng hóa (A → Z)' },
+    { value:'tenHangHoa|desc', label:'Tên hàng hóa (Z → A)' }
+  ]
+};
+function loadSapXepConfig(){
+  db.collection('dutru_config').doc('sapXepDanhMuc').onSnapshot(doc=>{
+    const data = doc.exists ? doc.data() : {};
+    sapXepConfig = { thuoc: data.thuoc || null, vattu_hoachat: data.vattu_hoachat || null };
+    if(currentUser.role === 'admin'){ buildDmSortOptions(); renderCatalogAdmin(); }
+    else { renderCatalogForOrder(); }
+  }, err=>console.error('loadSapXepConfig', err));
+}
+function buildDmSortOptions(){
+  const sel = document.getElementById('dmSortSelect');
+  if(!sel) return;
+  const cfg = sapXepConfig[dmFilterLoai];
+  const currentValue = cfg && cfg.field ? `${cfg.field}|${cfg.dir||'asc'}` : '';
+  sel.innerHTML = DM_SORT_OPTIONS[dmFilterLoai].map(o=>`<option value="${o.value}">Sắp xếp: ${o.label}</option>`).join('');
+  sel.value = currentValue;
+}
+async function onDmSortChange(){
+  const sel = document.getElementById('dmSortSelect');
+  const [field, dir] = sel.value ? sel.value.split('|') : [null, null];
+  const update = {};
+  update[dmFilterLoai] = field ? { field, dir } : null;
+  await db.collection('dutru_config').doc('sapXepDanhMuc').set(update, { merge:true });
+}
+function applyDmSort(rows, loai){
+  const cfg = sapXepConfig[loai];
+  if(!cfg || !cfg.field) return rows;
+  const sorted = [...rows].sort((a,b)=> (a[cfg.field]||'').toString().localeCompare((b[cfg.field]||'').toString(), 'vi'));
+  if(cfg.dir === 'desc') sorted.reverse();
+  return sorted;
+}
 function renderCatalogAdmin(){
   const loai = dmFilterLoai;
   const q = (document.getElementById('dmSearch')?.value || '').toLowerCase();
@@ -1109,7 +1158,7 @@ function renderCatalogAdmin(){
 
   const allOfLoai = catalog.filter(c => (c.loaiDanhMuc||'thuoc')===loai);
   const hiddenInactiveCount = showInactive ? 0 : allOfLoai.filter(c=>c.active===false).length;
-  const rows = dmRowsPassingFilters(loai, q, showInactive, null);
+  const rows = applyDmSort(dmRowsPassingFilters(loai, q, showInactive, null), loai);
 
   body.innerHTML = rows.length ? rows.map((c,i)=>`
     <tr>
@@ -1830,11 +1879,11 @@ function renderCatalogForOrder(){
   const allFields = FIELD_SCHEMA[loai];
   const fields = allFields.filter(f=>f.key!=='maBV'); // Mã BV không hiện ở đây, xem chi tiết qua khung Tra cứu bên cạnh
   const draft = orderDraft[loai];
-  const rows = catalog.filter(c =>
+  const rows = applyDmSort(catalog.filter(c =>
     c.active !== false &&
     (c.loaiDanhMuc||'thuoc') === loai &&
     (!q || allFields.some(f => (c[f.key]||'').toLowerCase().includes(q)))
-  );
+  ), loai);
   body.innerHTML = rows.length ? rows.map((c,i)=>{
     const d = draft[c.id] || {};
     return `
