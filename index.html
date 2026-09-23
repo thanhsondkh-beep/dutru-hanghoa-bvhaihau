@@ -387,7 +387,12 @@ tfoot td{background:#eaf3f1;font-weight:700;border-top:2px solid var(--line);}
             <div><label style="font-size:12px;">Tên hoạt chất</label><input id="tcHoatChat" placeholder="VD: Paracetamol" oninput="renderTraCuu()"></div>
             <div><label style="font-size:12px;">Tên thuốc</label><input id="tcTenThuoc" placeholder="VD: Hapacol" oninput="renderTraCuu()"></div>
             <div><label style="font-size:12px;">Hàm lượng</label><input id="tcHamLuong" placeholder="VD: 500mg" oninput="renderTraCuu()"></div>
-            <button type="button" class="btn secondary small" id="tcAdvancedToggle" onclick="toggleTcAdvanced()" style="align-self:flex-start;">+ Lọc thêm theo Nhóm/Đường dùng</button>
+            <div>
+              <label style="font-size:12px;">Đường dùng</label>
+              <input id="tcDuongDung" list="tcDuongDungList" placeholder="Gõ hoặc chọn..." oninput="renderTraCuu()">
+              <datalist id="tcDuongDungList"></datalist>
+            </div>
+            <button type="button" class="btn secondary small" id="tcAdvancedToggle" onclick="toggleTcAdvanced()" style="align-self:flex-start;">+ Lọc thêm theo Nhóm chung/chi tiết</button>
             <div id="tcAdvancedFilters" style="display:none;flex-direction:column;gap:8px;">
               <div>
                 <label style="font-size:12px;">Nhóm chung</label>
@@ -398,11 +403,6 @@ tfoot td{background:#eaf3f1;font-weight:700;border-top:2px solid var(--line);}
                 <label style="font-size:12px;">Nhóm chi tiết</label>
                 <input id="tcNhomChiTiet" list="tcNhomChiTietList" placeholder="Gõ hoặc chọn..." oninput="renderTraCuu()">
                 <datalist id="tcNhomChiTietList"></datalist>
-              </div>
-              <div>
-                <label style="font-size:12px;">Đường dùng</label>
-                <input id="tcDuongDung" list="tcDuongDungList" placeholder="Gõ hoặc chọn..." oninput="renderTraCuu()">
-                <datalist id="tcDuongDungList"></datalist>
               </div>
             </div>
           </div>
@@ -1769,33 +1769,42 @@ function renderTraCuu(){
     totalEl.innerHTML = '';
     return;
   }
-  if(!rows.length){ el.innerHTML = '<div class="hint">Không tìm thấy mặt hàng phù hợp.</div>'; totalEl.innerHTML = ''; return; }
 
-  // Tính tổng trên TOÀN BỘ kết quả khớp (trước khi giới hạn hiển thị), để không bị thiếu khi có nhiều hơn 100 dòng
-  let tongSoLuong = 0, soDongCoDuLieu = 0;
-  rows.forEach(it=>{
-    const su = timSoLieuSuDungByMaBV(it.maBV, 'thuoc');
-    if(su){ tongSoLuong += su.soLuong; soDongCoDuLieu++; }
+  // Chỉ giữ lại mặt hàng thực sự có số liệu sử dụng > 0 cho khoa — ẩn hẳn mặt hàng chưa dùng/dùng = 0
+  const rowsCoDuLieu = rows
+    .map(it => ({ it, su: timSoLieuSuDungByMaBV(it.maBV, 'thuoc') }))
+    .filter(x => x.su && x.su.soLuong > 0);
+
+  if(!rowsCoDuLieu.length){ el.innerHTML = '<div class="hint">Không có mặt hàng nào khớp lọc và có số liệu sử dụng > 0 cho khoa.</div>'; totalEl.innerHTML = ''; return; }
+
+  // Tính tổng trên TOÀN BỘ kết quả khớp (trước khi giới hạn hiển thị), tách riêng Đơn chất / Phối hợp
+  // Quy ước: hoạt chất có dấu "+" (VD "Amoxicillin + Acid clavulanic") = thuốc phối hợp, còn lại là đơn chất
+  let tongSoLuong = 0, tongDonChat = 0, tongPhoiHop = 0;
+  rowsCoDuLieu.forEach(({it, su})=>{
+    tongSoLuong += su.soLuong;
+    if(/[+;]/.test(it.tenHoatChat||'')) tongPhoiHop += su.soLuong;
+    else tongDonChat += su.soLuong;
   });
 
-  const displayRows = rows.slice(0, 100); // giới hạn hiển thị chi tiết tránh quá dài
-  el.innerHTML = displayRows.map(it=>{
-    const su = timSoLieuSuDungByMaBV(it.maBV, 'thuoc');
-    const suLine = su
-      ? `<div style="margin-top:3px;"><span class="tag active">Đã dùng: ${su.soLuong.toLocaleString('vi-VN')}</span> <span class="hint">(kỳ ${fmtDateStr(su.tuNgay)} → ${fmtDateStr(su.denNgay)})</span></div>`
-      : `<div class="hint" style="margin-top:3px;">Chưa có số liệu sử dụng cho khoa.</div>`;
+  const displayRows = rowsCoDuLieu.slice(0, 100); // giới hạn hiển thị chi tiết tránh quá dài
+  el.innerHTML = displayRows.map(({it, su})=>{
+    const suLine = `<div style="margin-top:3px;"><span class="tag active">Đã dùng: ${su.soLuong.toLocaleString('vi-VN')}</span> <span class="hint">(kỳ ${fmtDateStr(su.tuNgay)} → ${fmtDateStr(su.denNgay)})</span></div>`;
     return `<div style="padding:8px 0;border-bottom:1px solid #f1f5f4;font-size:12.5px;">
       <strong>${esc(it.tenHangHoa)}</strong>
       <div class="hint">${esc(it.tenHoatChat)}${it.hamLuong?' · '+esc(it.hamLuong):''}</div>
       ${suLine}
     </div>`;
   }).join('');
-  if(rows.length > 100){
-    el.innerHTML += `<div class="hint" style="padding-top:6px;">Chỉ hiện 100/${rows.length} mặt hàng đầu, thu hẹp thêm điều kiện lọc để xem đủ (Tổng cộng ở trên vẫn tính trên toàn bộ ${rows.length} mặt hàng khớp).</div>`;
+  if(rowsCoDuLieu.length > 100){
+    el.innerHTML += `<div class="hint" style="padding-top:6px;">Chỉ hiện 100/${rowsCoDuLieu.length} mặt hàng đầu, thu hẹp thêm điều kiện lọc để xem đủ (Tổng cộng ở trên vẫn tính trên toàn bộ ${rowsCoDuLieu.length} mặt hàng).</div>`;
   }
   totalEl.innerHTML = `<div style="border-top:2px solid var(--line);padding-top:8px;font-size:13px;">
     <strong>Tổng cộng: ${tongSoLuong.toLocaleString('vi-VN')}</strong>
-    <span class="hint"> (${soDongCoDuLieu}/${rows.length} mặt hàng có số liệu sử dụng)</span>
+    <span class="hint"> (${rowsCoDuLieu.length} mặt hàng có số liệu sử dụng)</span>
+    <div class="hint" style="margin-top:3px;">
+      Trong đó — Đơn chất: <strong>${tongDonChat.toLocaleString('vi-VN')}</strong>
+      &nbsp;·&nbsp; Phối hợp: <strong>${tongPhoiHop.toLocaleString('vi-VN')}</strong>
+    </div>
   </div>`;
 }
 
