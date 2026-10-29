@@ -597,7 +597,7 @@ const DEF_S = { asOf: todayISO(), months: 0, target: 3, low: 1, watch: 3, expDay
 let DB = { kiemke: [], loaded: {} }, S = { ...DEF_S }, OV = { use: {} }, QTY = {}, M = null;
 const TREG = {};
 const UI = { CF: {}, nh: { sel: '', q: '', mode: 'nhom' }, view: 'tong-quan', hh: { goi: '', loai: '', nt: '', st: '', hl: '', q: '' }, gy: { mode: 'nhom', st: 'need', q: '', loai: '' }, cb: 'all', dc: 'nhapngoai', TS: {} };
-function saveDB() { DB.savedAt = new Date().toISOString(); if (!DB.isPreload) fbQueue(fbPushAll); return IDB.set('db', DB); }
+function saveDB() { DB.savedAt = new Date().toISOString(); if (!DB.isPreload) { DB.unsynced = true; fbQueue(fbPushAll); } return IDB.set('db', DB); }
 function saveS() { fbMetaSoon(); return IDB.set('set', S); }
 function saveOV() { fbMetaSoon(); IDB.set('qty', QTY); return IDB.set('ov', OV); }
 
@@ -612,6 +612,7 @@ function setCloud(st, msg) {
   FB.st = st; FB.msg = msg; FB.live = st === 'on' || st === 'sync';
   const c = $('#cloud'); if (c) { c.className = 'cloud ' + st; c.querySelector('span').textContent = { on: 'Firebase', sync: 'Đang đồng bộ…', err: 'Lỗi Firebase', login: 'Cần đăng nhập', off: 'Lưu cục bộ' }[st]; c.title = msg; }
   const s = $('#fbStatus'); if (s) s.innerHTML = fbStatusHtml();
+  if (UI.view === 'du-lieu' && M && FB.lastSt !== st && $('#modal').hidden) { FB.lastSt = st; render(); } FB.lastSt = st;
 }
 function parseCfg(txt) {
   const m = String(txt).match(/\{[\s\S]*\}/); if (!m) throw new Error('Không thấy khối cấu hình { ... }');
@@ -620,7 +621,15 @@ function parseCfg(txt) {
   return o;
 }
 const fbQueue = fn => { if (!FB.db) return; FB.q = FB.q.then(fn).catch(e => fbErr(e)); };
-function fbErr(e) { if (e && e.code === 'permission-denied') setCloud('login', 'Firestore từ chối quyền — hãy đăng nhập hoặc kiểm tra quy tắc bảo mật'); else setCloud('err', (e && e.message) || String(e)); }
+function fbErr(e) {
+  const c = e && e.code;
+  if (c === 'permission-denied') {
+    if (FB.user) setCloud('err', `Đã đăng nhập (${FB.user.email}) nhưng Firestore vẫn từ chối quyền ghi/đọc. Cách sửa: Firebase console → Firestore Database → tab Rules → dán quy tắc bên dưới → bấm Publish.`);
+    else setCloud('login', 'Chưa đăng nhập nên Firestore từ chối quyền. Nhập email, mật khẩu bên dưới rồi bấm Đăng nhập.');
+  } else if (c === 'failed-precondition' || c === 'not-found' || /database .*does not exist|NOT_FOUND/i.test((e && e.message) || '')) setCloud('err', 'Project chưa có Firestore Database. Vào Firebase console → Firestore Database → Create database (asia-southeast1, production mode).');
+  else if (c === 'unavailable') setCloud('err', 'Không kết nối được Firebase (mất mạng hoặc bị chặn). Dữ liệu vẫn lưu trên máy này và sẽ đẩy lên khi có mạng.');
+  else setCloud('err', (e && e.message) || String(e));
+}
 const syncS = () => { const { asOf, ...rest } = S; return rest; };
 async function fbStart() {
   const raw = fbCfgRaw();
@@ -639,7 +648,7 @@ async function fbConnect() {
   setCloud('sync', 'Đang đồng bộ…');
   const ref = FB.db.collection(COL).doc('meta');
   const snap = await ref.get();
-  if (snap.exists) await applyMeta(snap.data(), true);
+  if (snap.exists) { await applyMeta(snap.data(), true); if (DB.unsynced && !DB.isPreload) await fbPushAll(); }
   else if (DB.danhmuc && !DB.isPreload) { if (!DB.savedAt) DB.savedAt = new Date().toISOString(); await fbPushAll(); }
   if (FB.unsub) FB.unsub();
   FB.unsub = ref.onSnapshot(s => { if (s.exists && !s.metadata.hasPendingWrites) FB.q = FB.q.then(() => applyMeta(s.data(), false)).catch(fbErr); }, fbErr);
@@ -654,7 +663,7 @@ async function applyMeta(m, first) {
   if (m.QTY && JSON.stringify(m.QTY) !== JSON.stringify(QTY)) { QTY = m.QTY; IDB.set('qty', QTY); ch = true; }
   if (m.savedAt && m.savedAt !== DB.savedAt) {
     const cPre = cloudIsPre(m);
-    if (!DB.isPreload && DB.danhmuc && (cPre || (first && DB.savedAt && DB.savedAt > m.savedAt))) { await fbPushAll(); toast(cPre ? 'Firebase đang chứa dữ liệu mẫu — đã thay bằng dữ liệu thật của máy này' : 'Đã đẩy dữ liệu mới hơn của máy này lên Firebase', 6000); }
+    if (!DB.isPreload && DB.danhmuc && (cPre || (first && DB.unsynced) || (first && DB.savedAt && DB.savedAt > m.savedAt))) { await fbPushAll(); toast(cPre ? 'Firebase đang chứa dữ liệu mẫu — đã thay bằng dữ liệu thật của máy này' : 'Đã đẩy dữ liệu mới hơn của máy này lên Firebase', 6000); }
     else if (cPre && DB.isPreload) { /* cả hai đều là dữ liệu mẫu: không làm gì */ }
     else { await fbBackup(); await fbPull(m); ch = true; toast('Đã tải dữ liệu mới từ Firebase' + (m.by ? ' (cập nhật bởi ' + m.by + ')' : ''), 5000); }
   }
@@ -687,7 +696,9 @@ async function fbPushAll() {
   const meta = { savedAt: DB.savedAt || new Date().toISOString(), parts, loaded: DB.loaded || {}, loadedAt: DB.loadedAt || {}, isPreload: false, nhomSavedAt: DB.nhomSavedAt || null, nhomSavedBy: DB.nhomSavedBy || null, by: FB.user ? FB.user.email : '', S: syncS(), OV, QTY };
   await FB.db.collection(COL).doc('meta').set(meta);
   FB.meta = meta;
+  if (DB.unsynced) { delete DB.unsynced; IDB.set('db', DB); }
   setCloud('on', 'Đã lưu lên Firebase lúc ' + new Date().toLocaleTimeString('vi-VN'));
+  if (UI.view === 'du-lieu') render();
   fbRefresh();
 }
 async function fbManualPull() {
@@ -713,7 +724,7 @@ function fbSyncInfo() {
   const t = v => v ? new Date(v).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
   const m = FB.meta, kk = (DB.kiemke || []).map(k => fD(k.date)).join(', ') || '—', ny = Object.keys(DB.nhapY || {}).join(', ') || '—';
   return `<div class="dcsum" style="grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:8px;padding:10px">
-    <div><span>Dữ liệu trên máy này</span><b>${DB.isPreload ? '<span style="color:var(--bad)">Dữ liệu mẫu có sẵn trong app</span>' : 'Cập nhật ' + t(DB.savedAt)}</b><div class="muted" style="font-size:11.5px">Kiểm kê: ${kk} · Bảng kê nhập: ${ny} · Bảng kê xuất: ${esc((DB.xuat && DB.xuat.period && DB.xuat.period.label) || '—')}</div></div>
+    <div><span>Dữ liệu trên máy này${DB.unsynced && !DB.isPreload ? ' <b style="color:var(--bad)">· chưa lên Firebase</b>' : ''}</span><b>${DB.isPreload ? '<span style="color:var(--bad)">Dữ liệu mẫu có sẵn trong app</span>' : 'Cập nhật ' + t(DB.savedAt)}</b><div class="muted" style="font-size:11.5px">Kiểm kê: ${kk} · Bảng kê nhập: ${ny} · Bảng kê xuất: ${esc((DB.xuat && DB.xuat.period && DB.xuat.period.label) || '—')}</div></div>
     <div><span>Dữ liệu trên Firebase</span><b>${m ? (cloudIsPre(m) ? '<span style="color:var(--bad)">Dữ liệu mẫu</span>' : 'Cập nhật ' + t(m.savedAt)) : 'Chưa có / chưa kết nối'}</b><div class="muted" style="font-size:11.5px">${m && m.by ? 'bởi ' + esc(m.by) : ''}</div></div></div>`;
 }
 function fbStatusHtml() {
@@ -727,8 +738,13 @@ function fbSaveCfg() {
 function fbClearCfg() { lsSet('qlgt_fbcfg', 'off'); toast('Đã ngắt Firebase, dữ liệu vẫn còn trên máy này'); setTimeout(() => location.reload(), 600); }
 async function fbLogin() {
   if (!FB.auth) { toast('Chưa cấu hình Firebase'); return; }
-  try { await FB.auth.signInWithEmailAndPassword($('#fbEmail').value.trim(), $('#fbPass').value); toast('Đã đăng nhập'); }
-  catch (e) { toast('Đăng nhập không thành công: ' + (e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password' ? 'sai email hoặc mật khẩu' : e.message)); }
+  const em = $('#fbEmail').value.trim(), pw = $('#fbPass').value;
+  if (!em || !pw) { toast('Nhập email và mật khẩu'); return; }
+  try { await FB.auth.signInWithEmailAndPassword(em, pw); toast('Đã đăng nhập, đang đồng bộ…'); }
+  catch (e) {
+    const M2 = { 'auth/invalid-credential': 'sai email hoặc mật khẩu (hoặc tài khoản chưa được tạo trong Authentication → Users)', 'auth/wrong-password': 'sai mật khẩu', 'auth/user-not-found': 'chưa có tài khoản này — tạo trong Authentication → Users', 'auth/invalid-email': 'email không đúng định dạng', 'auth/operation-not-allowed': 'project chưa bật đăng nhập Email/Password (Authentication → Sign-in method)', 'auth/configuration-not-found': 'project chưa bật Authentication (Authentication → Get started → Email/Password)', 'auth/too-many-requests': 'đăng nhập sai quá nhiều lần, thử lại sau ít phút', 'auth/network-request-failed': 'không có mạng' };
+    const msg = 'Đăng nhập không thành công: ' + (M2[e.code] || e.message); toast(msg, 8000); setCloud('login', msg);
+  }
 }
 async function fbLogout() { if (FB.auth) await FB.auth.signOut(); }
 function fbCard() {
@@ -1868,7 +1884,8 @@ function vDuLieu() {
     <div class="acts"><button class="btn pri" data-imp="${slot}">${ic('up', 15)} ${ok ? 'Thay file' : 'Nạp file'}</button>${ok && del ? `<button class="btn bad" data-del="${slot}">Gỡ</button>` : ''}</div><div class="hint">hoặc kéo thả file vào ô này</div></div>`;
   const kk = DB.kiemke.map((k, i) => `<div class="src" data-slot="kiemke"><h3>Biên bản kiểm kê</h3><div class="st"><span class="pill p-du">Đã nạp</span></div><div style="font-size:13px">${esc(k.dm)} · ngày ${fD(k.date)} · ${fI(k.lines.length)} dòng<br><span class="muted">${esc(k.kho)}</span></div>${k.file ? `<div class="fn">${esc(k.file)}</div>` : ''}${k.at ? `<div class="fn">Nạp lúc ${new Date(k.at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</div>` : ''}
     <div class="acts"><button class="btn pri" data-imp="kiemke">${ic('up', 15)} Thay file</button><button class="btn bad" data-del="kiemke:${i}">Gỡ</button></div><div class="hint">Biên bản cùng danh mục và kho sẽ được thay thế</div></div>`).join('');
-  return `<div class="page-h"><div><h2>Dữ liệu & cài đặt</h2><p>Nạp riêng từng loại bằng nút trên mỗi ô (hoặc kéo thả file vào đúng ô), hoặc thả nhiều file cùng lúc vào khung chung để app tự nhận loại. Dữ liệu lưu trên máy này và đồng bộ lên Firebase (bấm nút trạng thái trên thanh tiêu đề để đăng nhập).</p></div></div>
+  const unsync = !DB.isPreload && DB.unsynced && FB.st !== 'on' && FB.st !== 'sync';
+  return `${unsync ? `<div class="note w" style="align-items:center">${ic('warn', 18)}<div style="flex:1"><b>Dữ liệu mới nạp trên máy này chưa lên Firebase</b>, máy khác chưa thấy. Lý do: ${esc(FB.msg)}</div><button class="btn pri" onclick="showFb()">Mở Firebase để đăng nhập</button></div>` : ''}<div class="page-h"><div><h2>Dữ liệu & cài đặt</h2><p>Nạp riêng từng loại bằng nút trên mỗi ô (hoặc kéo thả file vào đúng ô), hoặc thả nhiều file cùng lúc vào khung chung để app tự nhận loại. Dữ liệu lưu trên máy này và đồng bộ lên Firebase (bấm nút trạng thái trên thanh tiêu đề để đăng nhập).</p></div></div>
   <div class="srcs">
     ${card('Danh mục hàng hóa trúng thầu', 'danhmuc', DB.danhmuc, DB.danhmuc ? fI(DB.danhmuc.length) + ' mặt hàng · ' + M.packages.length + ' gói thầu' : 'Gốc của app: SL trúng thầu, điều chuyển, nhập theo năm, hạn thầu.', 1)}
     ${bsCard()}
