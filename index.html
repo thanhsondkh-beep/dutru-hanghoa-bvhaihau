@@ -294,6 +294,8 @@ table.t{width:100%;border-collapse:collapse;font-size:13px}
 .nhact{display:inline-flex;gap:5px;align-items:center}.nhact .nhq{width:150px;padding:5px 7px;font-size:12.5px}.nhact .btn{padding:5px 8px;font-size:12px}
 .nhleft .seg{display:flex;width:100%}.nhleft .seg button{padding:7px 4px;white-space:nowrap;font-size:12px;flex:1 1 auto}
 .nhleft .seg .cnt{font-size:10px;font-weight:700;background:var(--bad);color:#fff;border-radius:10px;padding:1px 6px}
+.itgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px 12px}
+.itgrid input{border:1px solid var(--line);border-radius:7px;padding:7px 9px;background:var(--panel);font-weight:400;min-width:0;width:100%}
 .nhsave{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .nhwarn{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:50%;background:var(--bad);color:#fff;font-style:normal;font-size:10px;font-weight:700;vertical-align:1px}
 .nhov{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--vio);vertical-align:1px}
@@ -416,7 +418,7 @@ const P = (() => {
     const c = n => colIdx(H, n, true);
     const ci = {
       loai: c('Hàng hóa'), maHC: c('Mã hoạt chất'), hc: c('Hoạt chất'), ham: c('Hàm lượng'), duong: c('Đường dùng'),
-      dang: c('Mã đường dùng'), ma: c('Mã thuốc BV'), ten: c('Tên thuốc'), sdk: c('Số đăng ký'), qc: c('Quy cách đóng gói'),
+      dang: c('Dạng bào chế') >= 0 ? c('Dạng bào chế') : c('Mã đường dùng'), ma: c('Mã thuốc BV'), ten: c('Tên thuốc'), sdk: c('Số đăng ký'), qc: c('Quy cách đóng gói'),
       hang: c('Hãng sản xuất'), nuoc: c('Nước sản xuất'), nt: c('Nhà thầu'), qd: c('Quyết định'), nqd: c('Ngày quyết định'),
       goi: c('Gói thầu'), nhom: c('Nhóm thầu'), han: c('Hạn thầu'), dvt: c('Đơn vị tính'), gia: c('Đơn giá'), sl: c('Số lượng'),
       dc: c('Điều chuyển'), n24: c('Nhập 2024'), n25: c('Nhập 2025'), n26: c('Nhập 2026'), con: c('Còn lại'), ng: c('Nhóm thuốc (tùy chọn)'), tuoi: c('Tuổi thọ') >= 0 ? c('Tuổi thọ') : c('Nhóm thuốc')
@@ -1267,9 +1269,11 @@ function vHangHoa() {
     { k: 'ten', c: 'stl1', h: 'Tên hàng hóa', v: r => fold(r.ten), fv: r => r.ten, r: r => `<div class="nm" style="min-width:170px"><b>${cv(r, 'ten', esc(r.ten))}</b>${r.bs ? ' <span class="pill p-b" style="font-size:10.5px;padding:1px 6px">Bổ sung</span>' : ''}<small>${esc(r.ma)}</small></div>` },
     { k: 'hc', h: 'Hoạt chất', c: 'csm', v: r => fold(r.hc), fv: r => r.hc, r: r => `<div style="width:190px">${cv(r, 'hc', esc(r.hc) || '—')}</div>` },
     { k: 'ham', h: 'Hàm lượng', c: 'csm', v: r => fold(r.ham), fv: r => r.ham, r: r => `<div style="max-width:110px">${cv(r, 'ham', esc(r.ham) || '—')}</div>` },
+    { k: 'dang', h: 'Dạng bào chế', c: 'csm', fv: r => r.dang, v: r => fold(r.dang), r: r => `<div style="width:140px">${cv(r, 'dang', esc(r.dang) || '—')}</div>` },
     { k: 'duong', h: 'Đường dùng', c: 'csm', fv: r => r.duong, v: r => fold(r.duong), r: r => `<div style="max-width:110px">${cv(r, 'duong', esc(r.duong) || '—')}</div>` },
     { k: 'dvt', h: 'ĐVT', c: 'csm', fv: r => r.dvt, r: r => `<div style="max-width:64px">${cv(r, 'dvt', esc(r.dvt))}</div>` },
     { k: 'qc', h: 'Quy cách<br>đóng gói', c: 'csm', fv: r => r.qc, v: r => fold(r.qc), r: r => `<div style="width:140px">${cv(r, 'qc', esc(r.qc) || '—')}</div>` },
+    { k: 'sdk', h: 'Số đăng ký', c: 'csm', fv: r => r.sdk, v: r => r.sdk, r: r => `<div style="max-width:130px;word-break:break-word">${cv(r, 'sdk', esc(r.sdk) || '—')}</div>` },
     { k: 'hang', h: 'Hãng SX', c: 'csm', v: r => fold(r.hang), fv: r => r.hang, r: r => `<div style="width:160px">${cv(r, 'hang', esc(r.hang) || '—')}</div>` },
     { k: 'nuoc', h: 'Nước SX', c: 'csm', v: r => fold(r.nuoc), fv: r => r.nuoc, r: r => `<div style="max-width:88px">${cv(r, 'nuoc', esc(r.nuoc) || '—')}</div>` },
     { k: 'tuoi', h: 'Tuổi thọ', c: 'csm', fv: r => r.tuoi || '', v: r => parseFloat(r.tuoi) || null, r: r => `<span style="white-space:nowrap">${cv(r, 'tuoi', esc(r.tuoi) || '—')}</span>` },
@@ -1438,7 +1442,7 @@ function vDoiChieu() {
 
 /* ====================== Chi tiết ====================== */
 function openModal(html) { $('#mbox').innerHTML = html; $('#modal').hidden = false; document.body.style.overflow = 'hidden'; $('#mbox').scrollTop = 0; }
-function closeModal() { $('#modal').hidden = true; document.body.style.overflow = ''; }
+function closeModal() { UI.itEdit = null; $('#modal').hidden = true; document.body.style.overflow = ''; }
 $('#modal').addEventListener('click', e => { if (e.target.id === 'modal' || e.target.closest('[data-close]')) closeModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#modal').hidden) closeModal(); });
 function groupBlock(g) {
@@ -1456,23 +1460,50 @@ function showGroup(key) {
   const g = M.gmap[key]; if (!g) return;
   openModal(`<div class="mh"><h2>${esc(g.name)}<div class="muted" style="font-size:13px;font-weight:400">${esc(g.hc)}</div></h2><button class="btn" data-close>${ic('x', 16)} Đóng</button></div>${groupBlock(g)}`);
 }
+const IT_FIELDS = ['ten', 'hc', 'ham', 'dang', 'duong', 'dvt', 'qc', 'sdk', 'hang', 'nuoc', 'tuoi', 'nt', 'goi', 'nhom', 'nqd', 'han', 'gia', 'sl'];
+function itEditForm(i) {
+  return `<div class="card"><div class="card-h"><h2>Sửa thông tin hàng hóa</h2><span class="sp"></span><span class="muted" style="font-size:12px">Mã BV ${esc(i.ma)} · QĐ ${esc(i.qd)} (không sửa được vì là khóa liên kết)</span></div>
+  <form id="itForm" class="pad" autocomplete="off"><div class="itgrid">${IT_FIELDS.map(f => { const t = TDF[f].t, v = i[f]; return `<label class="fld"><span>${TDF[f].l}${i.chg && i.chg[f] ? ' <i class="nhov" title="Đã sửa trước đó"></i>' : ''}</span><input data-itf="${f}" ${t === 'date' ? 'type="date"' : t === 'num' ? 'inputmode="decimal"' : ''} value="${esc(v == null ? '' : String(v))}"></label>`; }).join('')}</div>
+  <div class="dcrow" style="margin-top:12px"><label class="fld"><span>Căn cứ / số công văn <span class="muted" style="font-weight:400">(không bắt buộc)</span></span><input id="itSo" placeholder="Để trống = đính chính dữ liệu"></label><label class="fld"><span>Ngày</span><input id="itNgay" type="date" value="${M.today}"></label><label class="fld grow"><span>Ghi chú</span><input id="itNote" placeholder="VD: sai so với hợp đồng gốc"></label></div>
+  <div class="dcrow" style="margin-top:12px"><button class="btn pri" type="submit">Lưu thay đổi</button><button class="btn" type="button" onclick="UI.itEdit=null;showItem(${i.id})">Hủy</button><span class="muted" style="font-size:12px">Giá trị gốc vẫn được giữ; trường đã sửa tô tím, xem lịch sử ở mục Thay đổi thông tin thầu.</span></div></form></div>`;
+}
+document.addEventListener('submit', e => {
+  if (e.target.id !== 'itForm') return;
+  e.preventDefault();
+  const i = M.imap[UI.itEdit]; if (!i) return;
+  const ch = [];
+  document.querySelectorAll('[data-itf]').forEach(inp => {
+    const f = inp.dataset.itf, t = TDF[f].t, raw = inp.value.trim(), cur = i[f];
+    const nv = t === 'num' ? (raw === '' ? 0 : P.num(raw)) : raw;
+    const same = t === 'num' ? +nv === +(cur || 0) : String(nv) === String(cur == null ? '' : cur);
+    if (!same) ch.push({ f, old: cur == null ? '' : cur, nw: String(nv) });
+  });
+  if (!ch.length) { toast('Không có thông tin nào thay đổi'); return; }
+  const so = $('#itSo').value.trim() || 'Đính chính dữ liệu', ngay = $('#itNgay').value || M.today, note = $('#itNote').value.trim() || 'Sửa trực tiếp trên trang chi tiết';
+  DB.thaydoi = DB.thaydoi || [];
+  DB.thaydoi.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), key: i.key, ma: i.ma, qd: i.qd, ten: i.orig.ten, so, ngay, note, ch, kind: 'sua', at: new Date().toISOString(), by: FB.user ? FB.user.email : '' });
+  UI.itEdit = null; saveDB(); recalc();
+  const ni = M.items.find(x => x.key === i.key); if (ni) showItem(ni.id);
+  toast(`Đã sửa ${ch.length} thông tin: ${ch.map(c => TDF[c.f].l).join(', ')}`, 6000);
+});
 function showItem(id) {
+  if (UI.itEdit != null && UI.itEdit !== id) UI.itEdit = null;
   const i = M.imap[id]; if (!i) return;
   const g = M.gmap[i.g];
   const w = v => Math.max(0, Math.min(100, v * 100));
   const YC = ['var(--na)', 'var(--warn)', 'var(--vio)', 'var(--brand2)']; const yrs = M.YEARS.filter(y => i.ny[y] || y === M.year); const ycol = k => YC[Math.max(0, YC.length - yrs.length + k)] || YC[0];
   openModal(`<div class="mh"><h2>${esc(i.ten)}<div class="muted" style="font-size:13px;font-weight:400">${esc([i.hc, i.ham, i.duong].filter(Boolean).join(' · '))}</div></h2><button class="btn" data-close>${ic('x', 16)} Đóng</button></div>
-  <div class="card"><div class="kv">
-    <div><span>Mã BV</span><b>${esc(i.ma)}</b></div><div><span>Loại</span>${esc(i.loai)}</div><div><span>Số đăng ký</span>${esc(i.sdk) || '—'}</div><div><span>Quy cách</span>${esc(i.qc) || '—'}</div><div><span>Đường dùng · Tuổi thọ</span>${esc(i.duong) || '—'} · ${esc(i.tuoi) || '—'}</div>
-    <div><span>Hãng – Nước sản xuất</span>${esc([i.hang, i.nuoc].filter(Boolean).join(' – ')) || '—'}</div><div><span>Nhà thầu</span>${esc(i.nt) || '—'}</div>
-    <div><span>Quyết định</span>${esc(i.qd)} (${fD(i.nqd)})</div><div><span>Gói · Nhóm thầu</span>${esc(i.goi || '—')} · ${esc(i.nhom || '—')}</div>
-    <div><span>Hạn thầu</span><b>${fD(i.han)}</b> ${i.days != null ? `<span class="muted" style="display:inline">(${i.days >= 0 ? 'còn ' + i.days : 'quá ' + (-i.days)} ngày)</span>` : ''}</div><div><span>Đơn giá</span><b>${fI(i.gia)}</b> đ/${esc(i.dvt)}</div>
-  </div></div>
+  ${UI.itEdit === i.id ? itEditForm(i) : `<div class="card"><div class="card-h"><h2>Thông tin hàng hóa</h2>${i.chg ? '<span class="pill p-cham">Có thông tin đã sửa</span>' : ''}<span class="sp"></span><button class="btn" onclick="UI.itEdit=${i.id};showItem(${i.id})">${ic('edit', 15)} Sửa thông tin</button></div><div class="kv">
+    <div><span>Mã BV</span><b>${esc(i.ma)}</b></div><div><span>Loại</span>${esc(i.loai)}</div><div><span>Số đăng ký</span>${cv(i, 'sdk', esc(i.sdk) || '—')}</div><div><span>Quy cách</span>${cv(i, 'qc', esc(i.qc) || '—')}</div><div><span>Dạng bào chế · Đường dùng</span>${cv(i, 'dang', esc(i.dang) || '—')} · ${cv(i, 'duong', esc(i.duong) || '—')}</div><div><span>Tuổi thọ</span>${cv(i, 'tuoi', esc(i.tuoi) || '—')}</div>
+    <div><span>Hãng – Nước sản xuất</span>${cv(i, 'hang', esc(i.hang) || '—')} – ${cv(i, 'nuoc', esc(i.nuoc) || '—')}</div><div><span>Nhà thầu</span>${cv(i, 'nt', esc(i.nt) || '—')}</div>
+    <div><span>Quyết định</span>${esc(i.qd)} (${cv(i, 'nqd', fD(i.nqd))})</div><div><span>Gói · Nhóm thầu</span>${cv(i, 'goi', esc(i.goi || '—'))} · ${cv(i, 'nhom', esc(i.nhom || '—'))}</div>
+    <div><span>Hạn thầu</span><b>${cv(i, 'han', fD(i.han))}</b> ${i.days != null ? `<span class="muted" style="display:inline">(${i.days >= 0 ? 'còn ' + i.days : 'quá ' + (-i.days)} ngày)</span>` : ''}</div><div><span>Đơn giá</span><b>${cv(i, 'gia', fI(i.gia))}</b> đ/${cv(i, 'dvt', esc(i.dvt))}</div>
+  </div></div>`}
   <div class="card"><h2>Thực hiện hợp đồng</h2><div class="pad">
     <div class="prog" title="Nhập theo năm">${yrs.map((y, k) => `<span style="width:${w(i.tong ? (i.ny[y] || 0) / i.tong : 0)}%;background:${ycol(k)}"></span>`).join('')}</div>
     <div class="lgd-in" style="padding:8px 0 0">${yrs.map((y, k) => `<span><i style="background:${ycol(k)}"></i>${y}: ${fI(i.ny[y] || 0)}${y === M.year && i.dif ? ' (bảng kê)' : ''}</span>`).join('')}</div>
   </div><div class="kv" style="padding-top:0">
-    <div><span>SL trúng thầu</span><b>${fI(i.sl)}</b></div><div><span>Điều chuyển</span>${fI(i.dc)}</div><div><span>Đã nhập</span><b>${fI(i.daNhap)}</b> (${fP(i.tyle)})</div><div><span>Còn lại</span><b style="${i.con < 0 ? 'color:var(--bad)' : ''}">${fI(i.con)}</b> (${fP(i.conPct)})</div>
+    <div><span>SL trúng thầu</span><b>${cv(i, 'sl', fI(i.sl))}</b></div><div><span>Điều chuyển</span>${fI(i.dc)}</div><div><span>Đã nhập</span><b>${fI(i.daNhap)}</b> (${fP(i.tyle)})</div><div><span>Còn lại</span><b style="${i.con < 0 ? 'color:var(--bad)' : ''}">${fI(i.con)}</b> (${fP(i.conPct)})</div>
     <div><span>Tốc độ nhập ${M.year}</span>${fI(i.use)}/tháng</div><div><span>Thầu còn đủ</span>${fN(i.thauM)} tháng</div><div><span>Dự kiến tỷ lệ khi hết hạn</span><b style="${i.proj != null && i.proj < S.perf / 100 ? 'color:var(--warn)' : ''}">${fP(i.proj)}</b></div>
   </div></div>${chgBlock(i)}${dcBlock(i)}${g ? groupBlock(g) : ''}`);
 }
@@ -1597,12 +1628,12 @@ function exportDC() {
 
 /* ====================== Thay đổi thông tin thầu ====================== */
 const TDF = {
-  ten: { l: 'Tên thuốc' }, hc: { l: 'Hoạt chất' }, ham: { l: 'Hàm lượng' }, duong: { l: 'Đường dùng' }, sdk: { l: 'Số đăng ký' }, qc: { l: 'Quy cách đóng gói' },
+  ten: { l: 'Tên thuốc' }, hc: { l: 'Hoạt chất' }, ham: { l: 'Hàm lượng' }, dang: { l: 'Dạng bào chế' }, duong: { l: 'Đường dùng' }, sdk: { l: 'Số đăng ký' }, qc: { l: 'Quy cách đóng gói' },
   hang: { l: 'Hãng sản xuất' }, nuoc: { l: 'Nước sản xuất' }, tuoi: { l: 'Tuổi thọ' }, nt: { l: 'Nhà thầu' }, dvt: { l: 'Đơn vị tính' }, gia: { l: 'Đơn giá', t: 'num' },
-  han: { l: 'Hạn thầu', t: 'date' }, goi: { l: 'Gói thầu' }, nhom: { l: 'Nhóm thầu' }
+  han: { l: 'Hạn thầu', t: 'date' }, goi: { l: 'Gói thầu' }, nhom: { l: 'Nhóm thầu' }, sl: { l: 'SL trúng thầu', t: 'num' }, nqd: { l: 'Ngày quyết định', t: 'date' }
 };
 const tdFmt = (f, v) => v == null || v === '' ? '(trống)' : TDF[f] && TDF[f].t === 'num' ? fI(P.num(v)) : TDF[f] && TDF[f].t === 'date' ? fD(v) : String(v);
-const tdCur = (it, f) => it ? (f === 'gia' ? it.gia : it[f]) : '';
+const tdCur = (it, f) => it ? it[f] : '';
 // ô có thay đổi trong bảng hàng hóa
 function cv(r, f, html) { return r.chg && r.chg[f] ? `<button class="chgbtn" data-chg="${r.id}|${f}" title="${esc(TDF[f].l)} đã thay đổi theo công văn – bấm để xem">${html}</button>` : html; }
 function cv2(r, fs, html) { const f = fs.find(x => r.chg && r.chg[x]); return f ? cv(r, f, html) : html; }
@@ -1935,9 +1966,9 @@ function bsCard() {
     <div class="acts"><button class="btn" id="tplBtn">${ic('xls', 15)} Tải file mẫu</button><button class="btn pri" data-imp="bosung">${ic('up', 15)} Nạp file bổ sung</button></div><div class="hint">Nạp lại cùng mã + QĐ thì cập nhật dòng cũ</div></div>`;
 }
 function downloadTemplate() {
-  const H = ['Hàng hóa', 'Mã thuốc BV', 'Tên thuốc', 'Hoạt chất', 'Mã hoạt chất', 'Hàm lượng', 'Đường dùng', 'Số đăng ký', 'Quy cách đóng gói', 'Hãng sản xuất', 'Nước sản xuất', 'Tuổi thọ', 'Nhà thầu', 'Quyết định', 'Ngày quyết định', 'Gói thầu', 'Nhóm thầu', 'Hạn thầu', 'Đơn vị tính', 'Đơn giá', 'Số lượng', 'Điều chuyển', 'Nhập ' + M.year, 'Nhóm thuốc (tùy chọn)'];
-  const REQ = ['Bắt buộc', 'Bắt buộc', 'Bắt buộc', 'Nên có', 'Tùy chọn', 'Nên có', 'Tùy chọn', 'Tùy chọn', 'Tùy chọn', 'Tùy chọn', 'Tùy chọn', 'Tùy chọn', 'Bắt buộc', 'Bắt buộc', 'Nên có', 'Tùy chọn', 'Tùy chọn', 'Bắt buộc', 'Bắt buộc', 'Bắt buộc', 'Bắt buộc', 'Tùy chọn', 'Tùy chọn', 'Tùy chọn'];
-  const ex = ['Thuốc', 'VIDU-001', 'Atorvastatin 20mg (dòng ví dụ, app tự bỏ qua)', 'Atorvastatin', '40.549', '20mg', 'Uống', 'VD-00000-00', 'Hộp 3 vỉ x 10 viên', 'Công ty CP Dược phẩm A', 'Việt Nam', '36 tháng', 'CÔNG TY TNHH DƯỢC PHẨM B', '123/QĐ-BVHH', '15/11/2026', 'G1', 'N4', '15/11/2027', 'Viên', 1250, 100000, 0, 0, 'Mỡ máu statin'];
+  const H = ['Hàng hóa', 'Mã thuốc BV', 'Tên thuốc', 'Hoạt chất', 'Mã hoạt chất', 'Hàm lượng', 'Dạng bào chế', 'Đường dùng', 'Số đăng ký', 'Quy cách đóng gói', 'Hãng sản xuất', 'Nước sản xuất', 'Tuổi thọ', 'Nhà thầu', 'Quyết định', 'Ngày quyết định', 'Gói thầu', 'Nhóm thầu', 'Hạn thầu', 'Đơn vị tính', 'Đơn giá', 'Số lượng', 'Điều chuyển', 'Nhập ' + M.year, 'Nhóm thuốc (tùy chọn)'];
+  const REQ = ['Bắt buộc', 'Bắt buộc', 'Bắt buộc', 'Nên có', 'Tùy chọn', 'Nên có', 'Tùy chọn', 'Tùy chọn', 'Tùy chọn', 'Tùy chọn', 'Tùy chọn', 'Tùy chọn', 'Tùy chọn', 'Bắt buộc', 'Bắt buộc', 'Nên có', 'Tùy chọn', 'Tùy chọn', 'Bắt buộc', 'Bắt buộc', 'Bắt buộc', 'Bắt buộc', 'Tùy chọn', 'Tùy chọn', 'Tùy chọn'];
+  const ex = ['Thuốc', 'VIDU-001', 'Atorvastatin 20mg (dòng ví dụ, app tự bỏ qua)', 'Atorvastatin', '40.549', '20mg', 'Viên nén bao phim', 'Uống', 'VD-00000-00', 'Hộp 3 vỉ x 10 viên', 'Công ty CP Dược phẩm A', 'Việt Nam', '36 tháng', 'CÔNG TY TNHH DƯỢC PHẨM B', '123/QĐ-BVHH', '15/11/2026', 'G1', 'N4', '15/11/2027', 'Viên', 1250, 100000, 0, 0, 'Mỡ máu statin'];
   const groups = [...new Set(Object.values(M.nhom || DB.nhom || {}).map(x => x.nhom))].sort((a, b) => a.localeCompare(b, 'vi'));
   const aoa = [['MẪU BỔ SUNG DANH MỤC THẦU — App Quản lý gói thầu. Điền từ dòng 4, không đổi tên cột, không xóa 3 dòng đầu.'], REQ, H, ex];
   const guide = [['HƯỚNG DẪN ĐIỀN MẪU BỔ SUNG DANH MỤC THẦU'], [],
@@ -1952,7 +1983,7 @@ function downloadTemplate() {
     ['Dòng ví dụ', '', 'Dòng có Mã bắt đầu bằng VIDU được app bỏ qua, có thể xóa hoặc để nguyên.']];
   if (typeof XLSX === 'undefined') { toast('Chưa tải được thư viện Excel.'); return; }
   const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = H.map((h, i) => ({ wch: [9, 12, 34, 24, 10, 10, 10, 14, 18, 22, 12, 10, 34, 14, 12, 8, 9, 12, 9, 10, 10, 10, 10, 22][i] })); ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 10 } }];
+  const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = H.map((h, i) => ({ wch: [9, 12, 34, 24, 10, 10, 16, 10, 14, 18, 22, 12, 10, 34, 14, 12, 8, 9, 12, 9, 10, 10, 10, 10, 22][i] })); ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 10 } }];
   XLSX.utils.book_append_sheet(wb, ws, 'BoSungThau');
   const g = XLSX.utils.aoa_to_sheet(guide); g['!cols'] = [{ wch: 28 }, { wch: 16 }, { wch: 100 }]; XLSX.utils.book_append_sheet(wb, g, 'HuongDan');
   const n = XLSX.utils.aoa_to_sheet([['Nhóm thuốc (copy vào cột Nhóm thuốc)'], ...groups.map(x => [x])]); n['!cols'] = [{ wch: 40 }]; XLSX.utils.book_append_sheet(wb, n, 'NhomThuoc');
@@ -2047,9 +2078,9 @@ function wbSave(sheets, name) {
 const stamp = () => M.today.split('-').reverse().join('-');
 function exportItems() {
   const r = (TREG.hh && TREG.hh.shown) || hhRows();
-  wbSave([['Hàng hóa', [['STT', 'Mã BV', 'Tên hàng hóa', 'Hoạt chất', 'Hàm lượng', 'Đường dùng', 'ĐVT', 'Quy cách đóng gói', 'Loại', 'Hãng SX', 'Nước SX', 'Tuổi thọ', 'Nhà thầu', 'Gói thầu', 'Nhóm thầu', 'Quyết định', 'Ngày QĐ', 'Hạn thầu', 'Đơn giá', 'SL trúng thầu', 'Điều chuyển', ...M.YEARS.map(y => 'Nhập ' + y), 'Đã nhập', 'Còn lại', 'Tỷ lệ thực hiện', 'Tồn kho nhóm', 'Dùng/tháng nhóm', 'Đủ dùng (tháng)', 'Tình trạng'],
-    ...r.map((i, k) => [k + 1, i.ma, i.ten, i.hc, i.ham, i.duong, i.dvt, i.qc, i.loai, i.hang, i.nuoc, i.tuoi || '', i.nt, i.goi, i.nhom, i.qd, fD(i.nqd), fD(i.han), i.gia, i.sl, i.dc, ...M.YEARS.map(y => i.ny[y] || 0), i.daNhap, i.con, i.tyle == null ? '' : +i.tyle.toFixed(4), i.gStock ?? '', Math.round(i.gUse), i.gCover == null || !isFinite(i.gCover) ? '' : +i.gCover.toFixed(1), ST[i.st]])],
-    [5, 10, 34, 28, 10, 12, 7, 22, 9, 24, 12, 9, 34, 7, 8, 14, 11, 11, 10, 11, 9, 10, 10, 10, 10, 10, 9, 10, 10, 9, 12]]], `HangHoaTheoThau_${stamp()}.xlsx`);
+  wbSave([['Hàng hóa', [['STT', 'Mã BV', 'Tên hàng hóa', 'Hoạt chất', 'Hàm lượng', 'Dạng bào chế', 'Đường dùng', 'ĐVT', 'Quy cách đóng gói', 'Số đăng ký', 'Loại', 'Hãng SX', 'Nước SX', 'Tuổi thọ', 'Nhà thầu', 'Gói thầu', 'Nhóm thầu', 'Quyết định', 'Ngày QĐ', 'Hạn thầu', 'Đơn giá', 'SL trúng thầu', 'Điều chuyển', ...M.YEARS.map(y => 'Nhập ' + y), 'Đã nhập', 'Còn lại', 'Tỷ lệ thực hiện', 'Tồn kho nhóm', 'Dùng/tháng nhóm', 'Đủ dùng (tháng)', 'Tình trạng'],
+    ...r.map((i, k) => [k + 1, i.ma, i.ten, i.hc, i.ham, i.dang, i.duong, i.dvt, i.qc, i.sdk, i.loai, i.hang, i.nuoc, i.tuoi || '', i.nt, i.goi, i.nhom, i.qd, fD(i.nqd), fD(i.han), i.gia, i.sl, i.dc, ...M.YEARS.map(y => i.ny[y] || 0), i.daNhap, i.con, i.tyle == null ? '' : +i.tyle.toFixed(4), i.gStock ?? '', Math.round(i.gUse), i.gCover == null || !isFinite(i.gCover) ? '' : +i.gCover.toFixed(1), ST[i.st]])],
+    [5, 10, 34, 28, 10, 18, 12, 7, 22, 16, 9, 24, 12, 9, 34, 7, 8, 14, 11, 11, 10, 11, 9, 10, 10, 10, 10, 10, 9, 10, 10, 9, 12]]], `HangHoaTheoThau_${stamp()}.xlsx`);
 }
 function exportGoi() {
   wbSave([['Gói thầu', [['Quyết định · Gói', 'Ngày QĐ', 'Hạn thầu sớm nhất', 'Hạn thầu muộn nhất', 'Số mặt hàng', 'Số nhà thầu', 'Giá trị trúng thầu', 'Giá trị đã nhập', 'Tỷ lệ', 'Mặt hàng còn SL', 'Trạng thái'],
