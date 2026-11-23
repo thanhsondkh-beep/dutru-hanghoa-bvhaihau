@@ -842,8 +842,9 @@ function compute() {
   const qn = q => String(q || '').replace(/^quyết định\s*(số)?\s*/i, '');
   const DCM = {};
   (DB.dieuchuyen || []).forEach(r => {
-    const a = DCM[r.key] || (DCM[r.key] = { inc: 0, dec: 0, n: 0, han: null, hanNgay: '' });
-    a.inc += +r.inc || 0; a.dec += +r.dec || 0; a.n++;
+    const a = DCM[r.key] || (DCM[r.key] = { inc: 0, dec: 0, fInc: 0, fDec: 0, nf: 0, n: 0, han: null, hanNgay: '' });
+    if (r.type === 'dcfile') { a.fInc += +r.inc || 0; a.fDec += +r.dec || 0; a.nf++; } else { a.inc += +r.inc || 0; a.dec += +r.dec || 0; }
+    a.n++;
     if (r.han && (r.ngay || '') >= a.hanNgay) { a.han = r.han; a.hanNgay = r.ngay || ''; }
   });
   // Thay đổi thông tin thầu theo công văn
@@ -853,7 +854,7 @@ function compute() {
     const qd = qn(d0.qd), key = d0.ma + '|' + qd, adj = DCM[key] || null;
     const d = { ...d0 }, chg = {};
     (TDM[key] || []).forEach(c => { if (!TDF[c.f]) return; d[c.f] = TDF[c.f].t === 'num' ? P.num(c.nw) : c.nw; (chg[c.f] = chg[c.f] || []).push(c); });
-    const dc = adj ? (S.dcMode === 'replace' ? adj.inc - adj.dec : d.dc + adj.inc - adj.dec) : d.dc;
+    const dc = adj ? (S.dcMode === 'replace' ? adj.inc - adj.dec + adj.fInc - adj.fDec : d.dc + adj.inc - adj.dec) : d.dc;
     const han = adj && adj.han ? adj.han : d.han;
     const ny0 = nyOf(d), nyF = ny0[year] || 0;
     const n26 = (nhapM && cnt[d.ma] === 1 && nhapM[d.ma]) ? nhapM[d.ma].sl : nyF;
@@ -1074,17 +1075,18 @@ function openDcPop(btn) {
   const recs = (DB.dieuchuyen || []).filter(r => r.key === i.key).sort((a, b) => (a.ngay || '') < (b.ngay || '') ? -1 : 1);
   const p = document.createElement('div'); p.id = 'cfp';
   p.innerHTML = `<div class="cfh">Điều chuyển: ${esc(i.ten)} <span class="muted" style="font-weight:400">${esc(i.ma)} · ${esc(i.qd)}</span></div>
-    <div class="dcsum"><div><span>SL trúng thầu</span><b>${fI(i.sl)}</b></div><div><span>Theo file danh mục</span><b>${fI(i.dcFile)}</b></div><div><span>Theo công văn</span><b>${i.adj ? `+${fI(i.adj.inc)} / −${fI(i.adj.dec)}` : '—'}</b></div><div><span>Điều chuyển đang tính</span><b style="color:${i.dc < 0 ? 'var(--bad)' : i.dc > 0 ? 'var(--ok)' : 'inherit'}">${i.dc > 0 ? '+' : ''}${fI(i.dc)}</b></div><div><span>SL sau điều chuyển</span><b>${fI(i.tong)}</b></div><div><span>Hạn thầu</span><b>${fD(i.han)}</b>${i.adj && i.adj.han ? ` <small class="muted">(gốc ${fD(i.hanGoc)})</small>` : ''}</div></div>
+    <div class="dcsum"><div><span>SL trúng thầu</span><b>${fI(i.sl)}</b></div><div><span>Theo file danh mục</span><b>${fI(i.dcFile)}</b>${i.dcFile ? `<div style="font-size:11px;color:${dcFileRest(i) ? 'var(--warn)' : 'var(--ok)'}">${dcFileRest(i) ? 'còn ' + fI(dcFileRest(i)) + ' chưa có thông tin' : '✓ đã có thông tin'}</div>` : ''}</div><div><span>Công văn cộng thêm</span><b>${i.adj && (i.adj.inc || i.adj.dec) ? `+${fI(i.adj.inc)} / −${fI(i.adj.dec)}` : '—'}</b></div><div><span>Điều chuyển đang tính</span><b style="color:${i.dc < 0 ? 'var(--bad)' : i.dc > 0 ? 'var(--ok)' : 'inherit'}">${i.dc > 0 ? '+' : ''}${fI(i.dc)}</b></div><div><span>SL sau điều chuyển</span><b>${fI(i.tong)}</b></div><div><span>Hạn thầu</span><b>${fD(i.han)}</b>${i.adj && i.adj.han ? ` <small class="muted">(gốc ${fD(i.hanGoc)})</small>` : ''}</div></div>
     ${S.dcMode === 'replace' && i.adj ? '<div class="muted" style="font-size:12px">Đang tính "chỉ theo công văn": số trong file danh mục được bỏ qua.</div>' : ''}
-    <div class="cfl" style="min-height:0">${recs.length ? recs.map(r => `<div class="dcrec"><div><b>${esc(r.so)}</b> <span class="muted">· ${fD(r.ngay)} · ${DCT[r.type]}</span></div>
+    <div class="cfl" style="min-height:0">${recs.length ? recs.map(r => `<div class="dcrec"><div style="display:flex;gap:6px;align-items:baseline"><span style="flex:1"><b>${esc(r.so)}</b> <span class="muted">· ${fD(r.ngay)} · ${DCT[r.type]}</span></span><button class="lnk" style="padding:1px 7px;font-size:11.5px" data-a="edit" data-id="${r.id}">Sửa</button></div>
       <div>${[r.inc ? `<span style="color:var(--ok)">Tăng +${fI(r.inc)}</span>` : '', r.dec ? `<span style="color:var(--bad)">Giảm −${fI(r.dec)}</span>` : '', r.dv ? `<span class="muted">${esc(r.dv)}</span>` : '', r.han ? `Hạn mới <b>${fD(r.han)}</b>` : ''].filter(Boolean).join(' · ')}</div>${r.note ? `<div class="muted" style="font-size:12px">${esc(r.note)}</div>` : ''}</div>`).join('')
       : `<div class="muted" style="padding:6px">Chưa có công văn nào trong app.${i.dcFile ? ' Số điều chuyển lấy từ file danh mục hàng hóa.' : ''}</div>`}</div>
-    <div class="cfa"><button class="btn" data-a="detail">Chi tiết mặt hàng</button><span style="flex:1"></span><button class="btn pri" data-a="add">+ Thêm công văn</button></div>`;
+    ${dcFileRest(i) ? `<button class="btn" data-a="file" style="justify-content:center;border-color:var(--warn);color:var(--warn)">${ic('edit', 14)} Bổ sung thông tin cho số ${dcFileRest(i) > 0 ? '+' : ''}${fI(dcFileRest(i))}</button><div class="muted" style="font-size:11px;text-align:center;margin-top:-4px">Ghi số, ngày công văn cho số đã có trong file, không cộng thêm số lượng</div>` : ''}
+    <div class="cfa"><button class="btn" data-a="detail">Chi tiết mặt hàng</button><span style="flex:1"></span><button class="btn pri" data-a="add">+ Thêm công văn mới</button></div>`;
   document.body.appendChild(p);
   const rc = btn.getBoundingClientRect(), W = Math.min(400, innerWidth - 16); p.style.width = W + 'px';
   p.style.left = Math.max(8, Math.min(rc.right - W, innerWidth - W - 8)) + 'px';
   const below = innerHeight - rc.bottom > 320; p.style.top = (below ? rc.bottom + 4 : Math.max(8, rc.top - 420)) + 'px'; p.style.maxHeight = (below ? innerHeight - rc.bottom - 16 : Math.min(410, rc.top - 12)) + 'px';
-  p.addEventListener('click', e => { const a = e.target.closest('[data-a]'); if (!a) return; closeCF(); if (a.dataset.a === 'add') dcStart(i.key); else showItem(i.id); });
+  p.addEventListener('click', e => { const a = e.target.closest('[data-a]'); if (!a) return; closeCF(); if (a.dataset.a === 'add') dcStart(i.key); else if (a.dataset.a === 'file') dcStart(i.key, { type: 'dcfile', ...(dcFileRest(i) > 0 ? { inc: dcFileRest(i) } : { dec: -dcFileRest(i) }) }); else if (a.dataset.a === 'edit') { UI.dcf = { key: i.key, edit: a.dataset.id }; nav('dieu-chuyen'); } else showItem(i.id); });
 }
 function closeCF() { const p = $('#cfp'); if (p) p.remove(); }
 function openCF(btn) {
@@ -1530,19 +1532,20 @@ function showItem(id) {
 }
 
 /* ====================== Điều chuyển / điều chỉnh ====================== */
-const DCT = { dc: 'Điều chuyển', dcinfo: 'Điều chỉnh thông tin' };
+const DCT = { dc: 'Điều chuyển', dcinfo: 'Điều chỉnh thông tin', dcfile: 'Thông tin cho số đã có trong file' };
+const dcFileRest = i => { const a = i.adj || { fInc: 0, fDec: 0 }; return (i.dcFile || 0) - (a.fInc - a.fDec); };
 function dcBlock(i) {
   const recs = (DB.dieuchuyen || []).filter(r => r.key === i.key).sort((a, b) => (a.ngay || '') < (b.ngay || '') ? -1 : 1);
   return `<div class="card"><div class="card-h"><h2>Điều chuyển / điều chỉnh</h2><span class="sp"></span><button class="btn pri" onclick="closeModal();dcStart('${esc(i.key)}')">+ Thêm công văn</button></div>
-    <div class="kv"><div><span>Điều chuyển theo file danh mục</span>${fI(i.dcFile)}</div><div><span>Theo công văn trong app</span>${i.adj ? `+${fI(i.adj.inc)} / −${fI(i.adj.dec)}` : '—'}</div><div><span>Điều chuyển đang tính</span><b>${fI(i.dc)}</b></div>${i.adj && i.adj.han ? `<div><span>Hạn thầu sau điều chỉnh</span><b>${fD(i.han)}</b> <span class="muted" style="display:inline">(gốc ${fD(i.hanGoc)})</span></div>` : ''}</div>
+    <div class="kv"><div><span>Điều chuyển theo file danh mục</span>${fI(i.dcFile)}${i.dcFile ? ` <span style="font-size:11.5px;color:${dcFileRest(i) ? 'var(--warn)' : 'var(--ok)'}">(${dcFileRest(i) ? 'còn ' + fI(dcFileRest(i)) + ' chưa có thông tin' : 'đã có thông tin'})</span>` : ''}</div><div><span>Công văn cộng thêm</span>${i.adj && (i.adj.inc || i.adj.dec) ? `+${fI(i.adj.inc)} / −${fI(i.adj.dec)}` : '—'}</div><div><span>Điều chuyển đang tính</span><b>${fI(i.dc)}</b></div>${i.adj && i.adj.han ? `<div><span>Hạn thầu sau điều chỉnh</span><b>${fD(i.han)}</b> <span class="muted" style="display:inline">(gốc ${fD(i.hanGoc)})</span></div>` : ''}</div>
     ${recs.length ? `<div class="tw"><table class="t"><thead><tr><th>Ngày CV</th><th>Số công văn</th><th>Loại</th><th class="num">Tăng</th><th class="num">Giảm</th><th>Đơn vị liên quan</th><th>Hạn mới</th><th>Ghi chú</th></tr></thead><tbody>${recs.map(r => `<tr><td>${fD(r.ngay)}</td><td>${esc(r.so)}</td><td>${DCT[r.type] || ''}</td><td class="num" style="color:var(--ok)">${r.inc ? '+' + fI(r.inc) : ''}</td><td class="num" style="color:var(--bad)">${r.dec ? '−' + fI(r.dec) : ''}</td><td>${esc(r.dv)}</td><td>${fD(r.han)}</td><td>${esc(r.note)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="pad muted" style="padding-top:0">Chưa có công văn nào cho mặt hàng này.</div>'}</div>`;
 }
-function dcStart(key) { UI.dcf = { key, edit: null }; nav('dieu-chuyen'); setTimeout(() => { const e = $('#dcInc'); if (e) e.focus(); }, 50); }
+function dcStart(key, pre) { UI.dcf = { key, edit: null, pre: pre || null }; nav('dieu-chuyen'); setTimeout(() => { const e = $('#dcInc'); if (e) e.focus(); }, 50); }
 function vDieuChuyen() {
   const recs = DB.dieuchuyen || [];
   const f = UI.dcf || (UI.dcf = { key: '', edit: null });
   const ed = f.edit ? recs.find(r => r.id === f.edit) : null;
-  const v = ed || { type: 'dc' };
+  const v = ed || f.pre || { type: 'dc' };
   const it = f.key ? M.ikey[f.key] : null;
   const pick = it ? `<div class="dcsel"><div><b>${esc(it.ten)}</b> <span class="muted">${esc(it.ma)}</span><div class="muted" style="font-size:12px">${esc([it.hc, it.ham].filter(Boolean).join(' – '))} · ${esc(it.pk)} · ${esc(it.nt.replace(/^\d+\.\s*/, ''))}</div>
       <div style="font-size:12.5px;margin-top:4px">SL trúng thầu <b>${fI(it.sl)}</b> · Điều chuyển hiện tại <b>${fI(it.dc)}</b> · Đã nhập <b>${fI(it.daNhap)}</b> · Còn lại <b>${fI(it.con)}</b> · Hạn thầu <b>${fD(it.han)}</b></div></div>
@@ -1551,7 +1554,7 @@ function vDieuChuyen() {
   const form = `<div class="card"><div class="card-h"><h2>${ed ? 'Sửa công văn' : 'Thêm công văn điều chuyển / điều chỉnh'}</h2></div><form class="pad dcform" id="dcForm" autocomplete="off">
     <div class="dcrow"><label class="fld dcwide"><span>Mặt hàng<span class="req">*</span></span>${pick}</label></div>
     <div class="dcrow">
-      <label class="fld">Loại<select id="dcType"><option value="dc" ${v.type === 'dc' ? 'selected' : ''}>Điều chuyển</option><option value="dcinfo" ${v.type === 'dcinfo' ? 'selected' : ''}>Điều chỉnh thông tin</option></select></label>
+      <label class="fld">Loại<select id="dcType"><option value="dc" ${v.type === 'dc' ? 'selected' : ''}>Điều chuyển</option><option value="dcinfo" ${v.type === 'dcinfo' ? 'selected' : ''}>Điều chỉnh thông tin</option><option value="dcfile" ${v.type === 'dcfile' ? 'selected' : ''}>Bổ sung thông tin cho số đã có trong file (không cộng thêm)</option></select></label>
       <label class="fld">Số lượng tăng<input id="dcInc" inputmode="numeric" value="${v.inc || ''}" placeholder="0"></label>
       <label class="fld">Số lượng giảm<input id="dcDec" inputmode="numeric" value="${v.dec || ''}" placeholder="0"></label>
       <label class="fld"><span>Số công văn<span class="req">*</span></span><input id="dcSo" value="${esc(v.so || '')}" placeholder="VD: 125/BVHH-KD"></label>
@@ -1563,18 +1566,18 @@ function vDieuChuyen() {
       <label class="fld grow">Ghi chú<input id="dcNote" value="${esc(v.note || '')}" placeholder="Nội dung điều chỉnh…"></label>
     </div>
     <div class="dcrow"><button class="btn pri" type="submit">${ed ? 'Lưu thay đổi' : 'Lưu công văn'}</button>${ed || f.key ? '<button class="btn" type="button" onclick="UI.dcf={key:\'\',edit:null};render()">Hủy</button>' : ''}
-      <span class="muted" style="font-size:12.5px">Tăng − giảm được cộng vào cột Điều chuyển của mặt hàng; Hạn thầu mới thay hạn thầu gốc.</span></div>
+      <span class="muted" style="font-size:12.5px">${v.type === 'dcfile' ? '<b style="color:var(--warn)">Loại "Bổ sung thông tin": số lượng chỉ để ghi nhận, không cộng thêm vào cột Điều chuyển.</b> ' : ''}${it && it.dcFile ? `File danh mục đang ghi điều chuyển ${it.dcFile > 0 ? '+' : ''}${fI(it.dcFile)}, còn ${fI(dcFileRest(it))} chưa có thông tin. ` : ''}Tăng − giảm được cộng vào cột Điều chuyển của mặt hàng; Hạn thầu mới thay hạn thầu gốc.</span></div>
   </form></div>`;
   const rows = recs.map(r => ({ ...r, it: M.ikey[r.key], net: (+r.inc || 0) - (+r.dec || 0) }));
   const cols = [
     { k: 'ngay', h: 'Ngày CV', v: r => r.ngay, r: r => fD(r.ngay) },
     { k: 'so', h: 'Số công văn', v: r => r.so, r: r => `<b style="white-space:nowrap">${esc(r.so)}</b>` },
-    { k: 'type', h: 'Loại', fv: r => DCT[r.type], v: r => r.type, r: r => `<span class="pill ${r.type === 'dc' ? 'p-b' : 'p-cham'}">${DCT[r.type]}</span>` },
+    { k: 'type', h: 'Loại', fv: r => DCT[r.type], v: r => r.type, r: r => `<span class="pill ${r.type === 'dc' ? 'p-b' : r.type === 'dcfile' ? 'p-theodoi' : 'p-cham'}" style="white-space:normal">${DCT[r.type]}</span>` },
     { k: 'ten', h: 'Mặt hàng', fv: r => r.it ? r.it.ten : r.ten, v: r => fold(r.it ? r.it.ten : r.ten), r: r => r.it ? `<button class="lnk" style="border:0;padding:0" data-item="${r.it.id}">${esc(r.it.ten)}</button><div class="muted" style="font-size:11.5px">${esc(r.ma)}</div>` : `<span style="color:var(--bad)">${esc(r.ten || r.ma)}</span><div class="muted" style="font-size:11.5px">Không còn trong danh mục</div>` },
     { k: 'qd', h: 'Quyết định', v: r => r.qd, r: r => `<span style="white-space:nowrap">${esc(r.qd)}</span>` },
     { k: 'inc', h: 'SL tăng', n: 1, v: r => +r.inc || 0, r: r => r.inc ? `<span style="color:var(--ok)">+${fI(r.inc)}</span>` : '' },
     { k: 'dec', h: 'SL giảm', n: 1, v: r => +r.dec || 0, r: r => r.dec ? `<span style="color:var(--bad)">−${fI(r.dec)}</span>` : '' },
-    { k: 'net', h: 'Chênh lệch', n: 1, v: r => r.net, r: r => `<b>${r.net > 0 ? '+' : ''}${fI(r.net)}</b>` },
+    { k: 'net', h: 'Chênh lệch', n: 1, v: r => r.net, r: r => r.type === 'dcfile' ? `<span class="muted" title="Đã có trong file danh mục, không cộng thêm">(${r.net > 0 ? '+' : ''}${fI(r.net)})</span>` : `<b>${r.net > 0 ? '+' : ''}${fI(r.net)}</b>` },
     { k: 'dv', h: 'Đơn vị liên quan', fv: r => r.dv, v: r => fold(r.dv), r: r => esc(r.dv) },
     { k: 'han', h: 'Hạn mới', v: r => r.han, r: r => fD(r.han) },
     { k: 'note', h: 'Ghi chú', fv: r => r.note, v: r => fold(r.note), r: r => `<div style="max-width:240px;font-size:12px">${esc(r.note)}</div>` },
@@ -1618,7 +1621,8 @@ document.addEventListener('click', e => {
   if (UI.dcDel && !e.target.closest('[data-dcdel]')) { UI.dcDel = null; }
   if (!e.target.closest('.dcpick')) document.querySelectorAll('.dclist').forEach(L => L.hidden = true);
 });
-document.addEventListener('change', e => { if (e.target.id === 'dcMode') { S.dcMode = e.target.value; saveS(); recalc(); } });
+document.addEventListener('change', e => { if (e.target.id === 'dcType' && UI.dcf) { UI.dcf.pre = { ...(UI.dcf.pre || {}), type: e.target.value, inc: $('#dcInc').value, dec: $('#dcDec').value }; ['so', 'ngay', 'dv', 'han', 'note'].forEach(k => UI.dcf.pre[k] = $('#dc' + k[0].toUpperCase() + k.slice(1)).value); if (!UI.dcf.edit) render(); }
+  if (e.target.id === 'dcMode') { S.dcMode = e.target.value; saveS(); recalc(); } });
 document.addEventListener('submit', e => {
   if (e.target.id !== 'dcForm') return;
   e.preventDefault();
@@ -1635,7 +1639,7 @@ document.addEventListener('submit', e => {
   DB.dieuchuyen = DB.dieuchuyen || [];
   if (f.edit) { const i = DB.dieuchuyen.findIndex(x => x.id === f.edit); if (i >= 0) DB.dieuchuyen[i] = { ...DB.dieuchuyen[i], ...rec, upd: new Date().toISOString() }; }
   else DB.dieuchuyen.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), ...rec, at: new Date().toISOString(), by: FB.user ? FB.user.email : '' });
-  const net = rec.inc - rec.dec;
+  const net = rec.type === 'dcfile' ? 0 : rec.inc - rec.dec;
   UI.dcf = { key: '', edit: null };
   saveDB(); recalc();
   toast(`${f.edit ? 'Đã cập nhật' : 'Đã lưu'} công văn ${rec.so}: ${it.ten}` + (net ? ` ${net > 0 ? '+' : '−'}${fI(Math.abs(net))} ${it.dvt}` : '') + (rec.han ? ` · hạn thầu mới ${fD(rec.han)}` : ''));
