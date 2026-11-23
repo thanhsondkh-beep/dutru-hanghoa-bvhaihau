@@ -296,6 +296,23 @@ table.t{width:100%;border-collapse:collapse;font-size:13px}
 .nhleft .seg .cnt{font-size:10px;font-weight:700;background:var(--bad);color:#fff;border-radius:10px;padding:1px 6px}
 .itgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px 12px}
 .itgrid input{border:1px solid var(--line);border-radius:7px;padding:7px 9px;background:var(--panel);font-weight:400;min-width:0;width:100%}
+.tystar{color:#e0a100;font-size:1.05em;line-height:1}
+.tychk{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;border:1px solid var(--line);border-radius:7px;padding:5px 10px;cursor:pointer;background:var(--panel)}
+.tychk.on{border-color:#e0a100;background:var(--warn-soft);color:var(--warn)}
+.tyadd{display:flex;gap:8px;flex-wrap:wrap}.tyadd .nhq{flex:1 1 280px;max-width:480px}
+.tykpi{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+@media (max-width:900px){.tykpi{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.tyk{all:unset;cursor:pointer;display:flex;flex-direction:column;gap:2px;padding:12px 14px;border-radius:10px;border:1px solid var(--line);background:var(--panel)}
+.tyk span{font-size:12.5px;color:var(--muted);font-weight:500}.tyk b{font-size:24px;font-variant-numeric:tabular-nums}
+.tyk.p1 b{color:var(--bad)}.tyk.p2 b{color:var(--warn)}.tyk.ok b{color:var(--ok)}.tyk.nd b{color:var(--na)}
+.tyk.on{outline:2px solid var(--brand2)}
+.tyk.p1{background:var(--bad-soft)}.tyk.p2{background:var(--warn-soft)}
+.tyul{margin:0;padding-left:16px;font-size:12.5px;max-width:320px;display:flex;flex-direction:column;gap:2px}
+.tyul.todo{color:var(--brand2)}
+.tyover{display:flex;flex-direction:column}
+.tyrow{all:unset;cursor:pointer;display:grid;grid-template-columns:100px minmax(0,220px) minmax(0,1fr);gap:10px;align-items:center;padding:8px 16px;border-top:1px solid var(--line);font-size:13px}
+.tyrow:hover{background:var(--panel2)}
+@media (max-width:700px){.tyrow{grid-template-columns:1fr}}
 .nhsave{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .nhwarn{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:50%;background:var(--bad);color:#fff;font-style:normal;font-size:10px;font-weight:700;vertical-align:1px}
 .nhov{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--vio);vertical-align:1px}
@@ -578,6 +595,7 @@ const ICON = {
   swap: '<path d="M4 8h14l-4-4M20 16H6l4 4"/>',
   edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
   layers: '<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/>',
+  star: '<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>',
   plan: '<rect x="4" y="4" width="16" height="17" rx="2"/><path d="M8 2v4M16 2v4M4 10h16M8 14h3M8 17h6"/>'
 };
 const ic = (n, s = 20, w = 2) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[n]}</svg>`;
@@ -688,7 +706,7 @@ async function fbPushAll() {
   if (!FB.db || DB.isPreload) return;
   setCloud('sync', 'Đang lưu lên Firebase…');
   const parts = {};
-  for (const k of ['danhmuc', 'nhom', 'nhap', 'nhapY', 'xuat', 'kiemke', 'bosung', 'dieuchuyen', 'thaydoi', 'nhomOv', 'nhomFix']) {
+  for (const k of ['danhmuc', 'nhom', 'nhap', 'nhapY', 'xuat', 'kiemke', 'bosung', 'dieuchuyen', 'thaydoi', 'nhomOv', 'nhomFix', 'nhomTY']) {
     if (DB[k] == null) continue;
     const s = JSON.stringify(DB[k]); const n = Math.max(1, Math.ceil(s.length / CH)); parts[k] = n;
     const b = FB.db.batch();
@@ -1151,20 +1169,20 @@ function openCols(btn) {
 /* ====================== Điều hướng ====================== */
 const VIEWS = [
   ['tong-quan', 'Tổng quan', 'home'], ['goi-thau', 'Danh mục gói thầu', 'doc'], ['hang-hoa', 'Hàng hóa theo thầu', 'box'],
-  ['goi-y', 'Gợi ý gọi hàng', 'cart'], ['du-tru', 'Dự trù mua sắm', 'plan'], ['canh-bao', 'Cảnh báo', 'warn'], ['dieu-chuyen', 'Điều chuyển thầu', 'swap'], ['thay-doi', 'Thay đổi thông tin thầu', 'edit'], ['nhom-hang', 'Nhóm hàng hóa', 'layers'], ['doi-chieu', 'Đối chiếu dữ liệu', 'check'], ['du-lieu', 'Dữ liệu & cài đặt', 'data']
+  ['goi-y', 'Gợi ý gọi hàng', 'cart'], ['du-tru', 'Dự trù mua sắm', 'plan'], ['thiet-yeu', 'Hàng thiết yếu', 'star'], ['canh-bao', 'Cảnh báo', 'warn'], ['dieu-chuyen', 'Điều chuyển thầu', 'swap'], ['thay-doi', 'Thay đổi thông tin thầu', 'edit'], ['nhom-hang', 'Nhóm hàng hóa', 'layers'], ['doi-chieu', 'Đối chiếu dữ liệu', 'check'], ['du-lieu', 'Dữ liệu & cài đặt', 'data']
 ];
 function nav(v) { UI.rs = true; if (location.hash !== '#' + v) location.hash = v; else { UI.view = v; render(); } window.scrollTo(0, 0); }
 window.addEventListener('hashchange', () => { const v = location.hash.slice(1); if (VIEWS.some(x => x[0] === v)) { UI.view = v; render(); window.scrollTo(0, 0); } });
 function renderSide() {
-  const nA = M.alerts.filter(a => a.lv === 'crit').length;
+  const nA = M.alerts.filter(a => a.lv === 'crit').length, nT = DB.nhomTY && Object.keys(DB.nhomTY).length ? tyList().filter(x => x.lv === 'p1').length : 0;
   const src = DB.kiemke.length ? `Tồn kho: <b>kiểm kê ${fD(M.kkDate)}</b><br>` : '';
-  $('#side').innerHTML = VIEWS.map(([k, t, i]) => `<a href="#${k}" class="${UI.view === k ? 'on' : ''}">${ic(i)}<span>${t}</span>${k === 'canh-bao' && nA ? `<span class="cnt">${nA}</span>` : ''}</a>`).join('')
+  $('#side').innerHTML = VIEWS.map(([k, t, i]) => `<a href="#${k}" class="${UI.view === k ? 'on' : ''}">${ic(i)}<span>${t}</span>${k === 'canh-bao' && nA ? `<span class="cnt">${nA}</span>` : ''}${k === 'thiet-yeu' && nT ? `<span class="cnt" title="Nhóm thiết yếu khẩn cấp">${nT}</span>` : ''}</a>`).join('')
     + `<div class="src">${src}Nhập ${M.year}: <b>${M.NY[M.year] ? 'bảng kê nhập' : 'theo danh mục'}</b><br>Sử dụng/tháng: <b>${M.mode === 'auto' ? 'xuất, thiếu thì lấy nhập' : M.mode === 'xuat' ? 'bảng kê xuất' : 'ước từ nhập'}</b><br>Dự trữ mục tiêu: <b>${S.target} tháng</b></div>`;
 }
 function render() {
   if (!M) return;
   renderSide();
-  const f = { 'tong-quan': vTongQuan, 'goi-thau': vGoiThau, 'hang-hoa': vHangHoa, 'goi-y': vGoiY, 'du-tru': vDuTru, 'canh-bao': vCanhBao, 'doi-chieu': vDoiChieu, 'dieu-chuyen': vDieuChuyen, 'thay-doi': vThayDoi, 'nhom-hang': vNhomHang, 'du-lieu': vDuLieu }[UI.view] || vTongQuan;
+  const f = { 'tong-quan': vTongQuan, 'goi-thau': vGoiThau, 'hang-hoa': vHangHoa, 'goi-y': vGoiY, 'du-tru': vDuTru, 'canh-bao': vCanhBao, 'thiet-yeu': vThietYeu, 'doi-chieu': vDoiChieu, 'dieu-chuyen': vDieuChuyen, 'thay-doi': vThayDoi, 'nhom-hang': vNhomHang, 'du-lieu': vDuLieu }[UI.view] || vTongQuan;
   const keep = UI.view === UI.lastView && !UI.rs ? [...document.querySelectorAll('#main .tw.fix')].map(e => [e.scrollTop, e.scrollLeft]) : [];
   const winY = UI.view === UI.lastView ? window.scrollY : 0;
   $('#main').innerHTML = DB.danhmuc || UI.view === 'du-lieu' ? f() : noData();
@@ -1206,7 +1224,10 @@ function vTongQuan() {
   const segs = [['het', 'var(--bad)'], ['theodoi', 'var(--warn)'], ['du', 'var(--ok)'], ['cham', 'var(--na)']];
   let acc = 0; const R = 54, C = 2 * Math.PI * R;
   const arcs = segs.map(([k, col]) => { const f = totalG ? cs[k] / totalG : 0; const s = `<circle r="${R}" cx="70" cy="70" fill="none" stroke="${col}" stroke-width="24" stroke-dasharray="${f * C} ${C}" stroke-dashoffset="${-acc * C}" transform="rotate(-90 70 70)"/>`; acc += f; return s; }).join('');
-  return `
+  const TL = DB.nhomTY && Object.keys(DB.nhomTY).length ? tyList() : [], tyU = TL.filter(x => x.lv === 'p1' || x.lv === 'p2');
+  const tyCard = TL.length ? `<div class="card"><div class="card-h"><h2>${star(1)} Hàng thiết yếu cần ưu tiên</h2><span class="muted" style="font-size:12.5px">${TL.filter(x => x.lv === 'p1').length} khẩn cấp · ${TL.filter(x => x.lv === 'p2').length} cần xử lý · ${TL.length} nhóm thiết yếu</span><span class="sp"></span><button class="btn pri" data-go="thiet-yeu">Mở danh sách</button></div>
+    ${tyU.length ? `<div class="tyover">${tyU.slice(0, 8).map(x => `<button class="tyrow" data-grp="${x.g ? esc(x.g.key) : ''}"><span class="pill ${TYC[x.lv]}">${TYL[x.lv]}</span><b>${esc(x.name)}</b><span class="muted">${esc(x.why[0] || '')}</span></button>`).join('')}${tyU.length > 8 ? `<div class="muted pad" style="padding:6px 16px">+${tyU.length - 8} nhóm khác</div>` : ''}</div>` : '<div class="pad" style="color:var(--ok)">Tất cả nhóm thiết yếu đang ổn định.</div>'}</div>` : '';
+  return `${tyCard}
   <div class="kpis">
     <div class="kpi b"><div class="ic">${ic('doc', 22)}</div><div><div class="lb">Tổng số gói thầu</div><div class="v">${P.length}</div><div class="s">Đang thực hiện: ${dang} · Hết hạn: ${P.length - dang}</div></div></div>
     <div class="kpi g"><div class="ic">${ic('box', 22)}</div><div><div class="lb">Tổng số mặt hàng</div><div class="v">${fI(it.length)}</div><div class="s">${Object.entries(loai).sort((a, b) => b[1] - a[1]).map(([k, v]) => k + ' ' + v).join(' · ')}</div></div></div>
@@ -1266,7 +1287,7 @@ function vHangHoa() {
   const loais = [...new Set(M.items.map(i => i.loai))];
   let cols = [
     { k: 'stt', h: 'STT', n: 1, c: 'stl0', r: (r, i) => i + 1 },
-    { k: 'ten', c: 'stl1', h: 'Tên hàng hóa', v: r => fold(r.ten), fv: r => r.ten, r: r => `<div class="nm" style="min-width:170px"><b>${cv(r, 'ten', esc(r.ten))}</b>${r.bs ? ' <span class="pill p-b" style="font-size:10.5px;padding:1px 6px">Bổ sung</span>' : ''}<small>${esc(r.ma)}</small></div>` },
+    { k: 'ten', c: 'stl1', h: 'Tên hàng hóa', v: r => fold(r.ten), fv: r => r.ten, r: r => `<div class="nm" style="min-width:170px"><b>${M.nhom[r.ma] && isTY(M.nhom[r.ma].nhom) ? star(1, 'Thuộc nhóm thiết yếu: ' + esc(M.nhom[r.ma].nhom)) + ' ' : ''}${cv(r, 'ten', esc(r.ten))}</b>${r.bs ? ' <span class="pill p-b" style="font-size:10.5px;padding:1px 6px">Bổ sung</span>' : ''}<small>${esc(r.ma)}</small></div>` },
     { k: 'hc', h: 'Hoạt chất', c: 'csm', v: r => fold(r.hc), fv: r => r.hc, r: r => `<div style="width:190px">${cv(r, 'hc', esc(r.hc) || '—')}</div>` },
     { k: 'ham', h: 'Hàm lượng', c: 'csm', v: r => fold(r.ham), fv: r => r.ham, r: r => `<div style="max-width:110px">${cv(r, 'ham', esc(r.ham) || '—')}</div>` },
     { k: 'dang', h: 'Dạng bào chế', c: 'csm', fv: r => r.dang, v: r => fold(r.dang), r: r => `<div style="width:140px">${cv(r, 'dang', esc(r.dang) || '—')}</div>` },
@@ -1366,7 +1387,7 @@ function gyByGroup() {
   const body = sl.map(g => {
     const alloc = g.alloc.map(a => { const q = QTY[a.it.id] != null ? QTY[a.it.id] : a.auto; return `<tr class="sub"><td></td><td colspan="2"><div class="nm"><b>${esc(a.it.ten)}</b> <span class="muted">${esc(a.it.ma)}</span><small>${esc(a.it.nt.replace(/^\d+\.\s*/, ''))} · ${esc(a.it.pk)} · hạn ${fD(a.it.han)}</small></div></td><td class="num">${fI(a.it.gia)}</td><td class="num">còn ${fI(a.it.con)}</td><td></td><td class="num"><input class="inq ${QTY[a.it.id] != null ? 'ov' : ''}" data-qty="${a.it.id}" value="${q}" inputmode="numeric" aria-label="Số lượng đặt ${esc(a.it.ten)}"></td><td class="num">${fI(q * a.it.gia)}</td><td></td></tr>`; }).join('');
     const short = g.shortage > 0 ? `<tr class="sub"><td></td><td colspan="5" style="color:var(--bad)">${g.items.length ? `Thầu còn hiệu lực không đủ: thiếu <b>${fI(g.shortage)} ${esc(g.dvt)}</b> → cần mua sắm bổ sung / điều chuyển` : 'Không có mặt hàng trúng thầu nào cho nhóm này'}</td><td class="num" style="color:var(--bad)"><b>${fI(g.shortage)}</b></td><td></td><td></td></tr>` : '';
-    return `<tr class="grp"><td>${pill(g.st)}</td><td><div class="nm"><b>${esc(g.name)}</b><small>${esc(g.hc)} · ${g.codes.length} mã</small></div></td>
+    return `<tr class="grp"><td>${pill(g.st)}</td><td><div class="nm"><b>${star(isTY(g.name))} ${esc(g.name)}</b><small>${esc(g.hc)} · ${g.codes.length} mã</small></div></td>
       <td class="num">${g.stock == null ? '—' : fI(g.stock)} <span class="muted">${esc(g.dvt)}</span></td>
       <td class="num"><input class="inq ${g.ov ? 'ov' : ''}" data-use="${esc(g.key)}" value="${g.usage ? Math.round(g.usage) : 0}" title="Ước tính ${g.src === 'xuat' ? 'theo bảng kê xuất' : 'theo nhập năm nay'}: ${fI(g.auto)}/tháng" aria-label="Dùng mỗi tháng"><br><span class="muted" style="font-size:11px">${g.ov ? 'sửa tay' : g.src === 'xuat' ? 'theo xuất' : 'theo nhập'}</span></td>
       <td class="num"><b>${g.cover === Infinity ? '∞' : fN(g.cover)}</b><br><span class="muted" style="font-size:11.5px">đến ${fD(g.until)}</span></td>
@@ -1758,16 +1779,18 @@ function vNhomHang() {
   const G = nhGroups(), names = Object.keys(G).sort((a, b) => a.localeCompare(b, 'vi'));
   const nOv = Object.keys(DB.nhomOv || {}).length, nFx = Object.keys(DB.nhomFix || {}).length;
   const q = fold(nh.q);
-  const shown = names.filter(n => !q || fold(n + ' ' + G[n].hc + ' ' + G[n].codes.map(m => m + ' ' + ((M.codeInfo[m] || {}).ten || '')).join(' ')).includes(q));
+  const nTY = names.filter(isTY).length;
+  const shown = names.filter(n => (!nh.onlyTy || isTY(n))).filter(n => !q || fold(n + ' ' + G[n].hc + ' ' + G[n].codes.map(m => m + ' ' + ((M.codeInfo[m] || {}).ten || '')).join(' ')).includes(q));
   const ungrouped = M.items.filter(i => i.loai === 'Thuốc' && !M.nhom[i.ma]);
   const ntw = M.ntList.filter(c => c.nt === 'nothau' || c.nt === 'nogroup').length, warnG = new Set(M.ntList.filter(c => c.nt === 'nothau').map(c => c.grp));
   const dl = `<datalist id="nhNames">${names.map(n => `<option value="${esc(n)}">`).join('')}</datalist>`;
   const left = `<div class="card nhleft"><div class="pad" style="display:flex;flex-direction:column;gap:8px;padding-bottom:8px">
       <div class="seg" style="align-self:flex-start"><button class="${nh.mode === 'nhom' ? 'on' : ''}" onclick="UI.nh.mode='nhom';render()">Nhóm ${names.length}</button><button class="${nh.mode === 'chua' ? 'on' : ''}" onclick="UI.nh.mode='chua';render()">Chưa nhóm ${ungrouped.length}</button><button class="${nh.mode === 'canh' ? 'on' : ''}" onclick="UI.nh.mode='canh';render()">Cảnh báo${ntw ? ` <span class="cnt" style="margin-left:4px">${ntw}</span>` : ''}</button></div>
       ${nh.mode === 'nhom' ? `<input id="nhQ" type="search" placeholder="Tìm nhóm, mã, tên thuốc…" value="${esc(nh.q)}" class="nhq">
-      <div style="display:flex;gap:6px"><input id="nhNew" placeholder="Tên nhóm mới" class="nhq" style="flex:1"><button class="btn pri" onclick="nhCreate()">+ Tạo</button></div>` : ''}</div>
+      <div style="display:flex;gap:6px"><input id="nhNew" placeholder="Tên nhóm mới" class="nhq" style="flex:1"><button class="btn pri" onclick="nhCreate()">+ Tạo</button></div>
+      <label class="tychk ${nh.onlyTy ? 'on' : ''}" style="align-self:flex-start"><input type="checkbox" onchange="UI.nh.onlyTy=this.checked;UI.rs=true;render()" ${nh.onlyTy ? 'checked' : ''}> Chỉ nhóm thiết yếu ★ (${nTY})</label>` : ''}</div>
     ${nOv ? `<div class="pad" style="padding-top:0;padding-bottom:8px"><button class="lnk" id="nhReset" style="color:var(--bad);border-color:transparent">Hủy ${nOv} thay đổi chưa lưu…</button></div>` : ''}
-    ${nh.mode === 'nhom' ? `<div class="nhlist">${shown.map(n => `<button class="nhitem ${nh.sel === n ? 'on' : ''}" data-nhsel="${esc(n)}"><span>${esc(n)}${G[n].ov ? ' <i class="nhov" title="Đã sửa trong app"></i>' : ''}${warnG.has(n) ? ' <i class="nhwarn" title="Có mã phát sinh nhập/xuất/tồn nhưng nhóm không có thầu còn hiệu lực">!</i>' : ''}</span><em>${G[n].codes.length}</em></button>`).join('') || '<div class="muted pad">Không có nhóm phù hợp.</div>'}</div>` : ''}</div>`;
+    ${nh.mode === 'nhom' ? `<div class="nhlist">${shown.map(n => `<button class="nhitem ${nh.sel === n ? 'on' : ''}" data-nhsel="${esc(n)}"><span>${star(isTY(n))}${isTY(n) ? ' ' : ''}${esc(n)}${G[n].ov ? ' <i class="nhov" title="Đã sửa trong app"></i>' : ''}${warnG.has(n) ? ' <i class="nhwarn" title="Có mã phát sinh nhập/xuất/tồn nhưng nhóm không có thầu còn hiệu lực">!</i>' : ''}</span><em>${G[n].codes.length}</em></button>`).join('') || '<div class="muted pad">Không có nhóm phù hợp.</div>'}</div>` : ''}</div>`;
   let right = '';
   if (nh.mode === 'canh') {
     const cnt = { nogroup: 0, nothau: 0, subst: 0, khac: 0 }; M.ntList.forEach(c => cnt[c.nt]++);
@@ -1805,7 +1828,7 @@ function vNhomHang() {
     const g = G[nh.sel] || { name: nh.sel, codes: [], hc: '' };
     const gg = M.gmap['N:' + nh.sel];
     const mem = g.codes.map(ma => ({ ma, c: M.codeInfo[ma] || { ten: '', items: [], stock: null, use: 0 }, ov: !!(DB.nhomOv || {})[ma] }));
-    right = `<div class="card"><div class="card-h"><h2 style="text-transform:none">${esc(nh.sel)}</h2>${gg ? pill(gg.st) : '<span class="pill p-na">Nhóm mới</span>'}<span class="sp"></span>
+    right = `<div class="card"><div class="card-h"><h2 style="text-transform:none">${star(isTY(nh.sel))} ${esc(nh.sel)}</h2>${gg ? pill(gg.st) : '<span class="pill p-na">Nhóm mới</span>'}<label class="tychk ${isTY(nh.sel) ? 'on' : ''}"><input type="checkbox" data-ty="${esc(nh.sel)}" ${isTY(nh.sel) ? 'checked' : ''} ${g.codes.length ? '' : 'disabled'}> Nhóm thiết yếu</label><span class="sp"></span>
         <input id="nhRen" class="nhq" value="${esc(nh.sel)}" style="width:220px" aria-label="Tên nhóm"><button class="btn" onclick="nhRename()">Đổi tên</button></div>
       <div class="kv"><div><span>Số mã trong nhóm</span><b>${g.codes.length}</b></div><div><span>Tồn kho nhóm</span><b>${gg && gg.stock != null ? fI(gg.stock) : '—'}</b></div><div><span>Dùng/tháng</span><b>${gg ? fI(gg.usage) : '—'}</b></div><div><span>Đủ dùng</span><b>${gg && gg.cover != null ? (gg.cover === Infinity ? '∞' : fN(gg.cover) + ' tháng') : '—'}</b></div></div>
       <div class="pad" style="padding-top:0"><label class="fld">Thêm mã vào nhóm<div class="dcpick"><input class="ipick" data-ctx="nh" type="search" autocomplete="off" placeholder="Gõ tên thuốc hoặc mã (cả mã thầu cũ trong kiểm kê / bảng kê)…"><div class="dclist" hidden></div></div></label></div>
@@ -1827,6 +1850,7 @@ function nhRename() {
   const old = UI.nh.sel, nw = ($('#nhRen').value || '').trim(); if (!nw || nw === old) return;
   const G = nhGroups(); (G[old] ? G[old].codes : []).forEach(ma => nhSet(ma, nw));
   if (OV.use['N:' + old] != null) { OV.use['N:' + nw] = OV.use['N:' + old]; delete OV.use['N:' + old]; saveOV(); }
+  if (DB.nhomTY && DB.nhomTY[old]) { DB.nhomTY[nw] = DB.nhomTY[old]; delete DB.nhomTY[old]; }
   UI.nh.sel = nw; saveDB(); recalc(); toast(`Đã đổi tên nhóm thành "${nw}"${G[nw] && G[nw] !== G[old] ? ' (gộp với nhóm cùng tên)' : ''}`);
 }
 document.addEventListener('click', e => {
@@ -1868,7 +1892,7 @@ function vDuTru() {
   const nBuy = plans.filter(p => p.buy > 0).length, nLost = plans.filter(p => p.lostQ > 0).length, tot = plans.reduce((s, p) => s + p.val, 0);
   const noC = plans.filter(p => p.buy > 0 && !p.g.valid.length).length;
   const cols = [
-    { k: 'name', h: 'Nhóm thuốc', fv: p => p.g.name, v: p => fold(p.g.name), r: p => `<div class="nm" style="min-width:170px"><b>${esc(p.g.name)}</b><small>${esc(p.g.hc)}</small></div>` },
+    { k: 'name', h: 'Nhóm thuốc', fv: p => p.g.name, v: p => fold(p.g.name), r: p => `<div class="nm" style="min-width:170px"><b>${star(isTY(p.g.name))} ${esc(p.g.name)}</b><small>${esc(p.g.hc)}</small></div>` },
     { k: 'dvt', h: 'ĐVT', fv: p => p.g.dvt, r: p => esc(p.g.dvt) },
     { k: 'stock', h: 'Tồn kho<br><span class="muted" style="font-weight:400;font-size:11px">kiểm kê</span>', n: 1, v: p => p.stock0, r: p => fI(p.stock0) },
     { k: 'u', h: 'Dùng/tháng', n: 1, v: p => p.u, r: p => fI(p.u) + `<div class="muted" style="font-size:11px">${p.g.ov ? 'sửa tay' : p.g.src === 'xuat' ? 'theo xuất' : 'theo nhập'}</div>` },
@@ -1906,6 +1930,82 @@ function exportMS() {
     ...rows.map(p => [p.g.name, p.g.hc, p.g.loai, p.g.dvt, p.stock0, Math.round(p.u), Math.round(p.D), p.avail, p.fromC, p.lostQ, p.buy, p.firstShort == null ? '' : fD(addM(M.today, p.firstShort)), p.ref ? p.ref.ten + ' (' + p.ref.pk + ')' : '', p.price, Math.round(p.val)])];
   a.push(['TỔNG', '', '', '', '', '', '', '', '', '', '', '', '', '', Math.round(rows.reduce((s, p) => s + p.val, 0))]);
   wbSave([['Du tru mua sam', a, [30, 30, 9, 7, 10, 10, 11, 12, 11, 11, 12, 12, 34, 11, 14]]], `DuTruMuaSam_${H}thang_${stamp()}.xlsx`);
+}
+
+/* ====================== Hàng thiết yếu ====================== */
+const TYL = { p1: 'Khẩn cấp', p2: 'Cần xử lý', ok: 'Ổn định', nd: 'Chưa đủ dữ liệu' }, TYC = { p1: 'p-het', p2: 'p-theodoi', ok: 'p-du', nd: 'p-na' }, TYO = { p1: 0, p2: 1, nd: 2, ok: 3 };
+const isTY = name => !!(DB.nhomTY || {})[name];
+const star = (on, t) => on ? `<span class="tystar" title="${t || 'Nhóm thiết yếu'}">★</span>` : '';
+function tyEval(name) {
+  const g = M.gmap['N:' + name] || null;
+  const r = { name, g, lv: 'ok', why: [], todo: [] };
+  if (!g) { r.lv = 'nd'; r.why.push('Nhóm chưa có mặt hàng thầu, tồn kho hay số liệu sử dụng'); r.todo.push('Kiểm tra lại mã trong nhóm, bổ sung thầu'); return r; }
+  const u = g.usage, cover = g.cover, hasC = g.valid.length > 0;
+  r.cover = cover; r.thauM = g.thauM; r.u = u; r.stock = g.stock;
+  r.lastExp = hasC ? g.valid.map(i => i.han || '9999-12-31').sort().pop() : null;
+  const P = msPlan(g, Math.max(6, S.msH || 12), 0); r.plan = P;
+  const up = l => { if (TYO[l] < TYO[r.lv] || r.lv === 'nd') r.lv = l; };
+  if (g.stock == null || !(u > 0)) {
+    r.lv = 'nd';
+    r.why.push(g.stock == null ? 'Chưa có tồn kho (chưa nạp kiểm kê cho loại hàng này)' : 'Chưa có số liệu sử dụng');
+    if (!hasC) { r.why.push('Không có thầu còn hạn'); r.todo.push('Chuẩn bị mua sắm / đấu thầu'); }
+    return r;
+  }
+  const al = g.alloc.map(a => ({ a, q: QTY[a.it.id] != null ? QTY[a.it.id] : a.auto })).filter(x => x.q > 0).sort((x, y) => y.q - x.q);
+  const gl = al.slice(0, 2).map(x => `${fI(x.q)} ${x.a.it.dvt} ${x.a.it.ten}`).join(', ') + (al.length > 2 ? ` và ${al.length - 2} mặt hàng khác` : '') + ` (≈ ${fM(al.reduce((t, x) => t + x.q * x.a.it.gia, 0))})`;
+  if (g.stock <= 0) { up('p1'); r.why.push('Hết hàng trong kho'); }
+  else if (cover < S.low) { up('p1'); r.why.push(`Tồn kho chỉ đủ ${fN(cover)} tháng`); }
+  else if (cover < S.watch) { up('p2'); r.why.push(`Tồn kho đủ ${fN(cover)} tháng (dưới ${S.watch} tháng)`); }
+  if (!hasC) { up(cover < S.watch ? 'p1' : 'p2'); r.why.push('Không còn hợp đồng thầu hiệu lực'); r.todo.push('Mua sắm khẩn cấp / xin điều chuyển từ đơn vị khác'); }
+  else {
+    if (g.thauM != null && g.thauM < S.watch) { up('p2'); r.why.push(`Thầu còn hạn chỉ đủ ${fN(g.thauM)} tháng`); r.todo.push('Chuẩn bị thầu bổ sung / xin điều chuyển tăng'); }
+    const dl = Math.round((new Date(r.lastExp) - new Date(M.today)) / 864e5);
+    if (r.lastExp < '9999' && dl <= S.expDays) { up('p2'); r.why.push(`Mọi hợp đồng hết hạn trước ${fD(r.lastExp)} (còn ${dl} ngày)`); r.todo.push('Gia hạn hợp đồng hoặc chuẩn bị thầu mới'); }
+  }
+  if (g.need > 0 && g.alloc.length) r.todo.unshift(`Gọi hàng ngay: ${gl}`);
+  if (g.shortage > 0 && hasC) { up('p2'); r.why.push(`Thầu không đủ cho lần gọi hàng: thiếu ${fI(g.shortage)} ${g.dvt}`); }
+  if (P && P.firstShort != null && P.firstShort < 6) { up('p2'); r.why.push(`Dự kiến thiếu hàng từ ${fD(addM(M.today, P.firstShort))}`); }
+  if (P && P.buy > 0 && !r.todo.some(t => /thầu/.test(t))) r.todo.push(`Dự trù mua sắm mới ${fI(P.buy)} ${g.dvt} cho ${Math.max(6, S.msH || 12)} tháng`);
+  if (!r.why.length) r.why.push(`Đủ dùng ${cover === Infinity ? 'dài hạn' : fN(cover) + ' tháng'}, thầu còn hạn đủ ${fN(g.thauM)} tháng`);
+  return r;
+}
+function tyList() { return Object.keys(DB.nhomTY || {}).map(tyEval).sort((a, b) => TYO[a.lv] - TYO[b.lv] || (a.cover ?? 1e9) - (b.cover ?? 1e9)); }
+function vThietYeu() {
+  const L = tyList(), c = { p1: 0, p2: 0, ok: 0, nd: 0 }; L.forEach(x => c[x.lv]++);
+  const f = UI.ty || (UI.ty = { lv: '' });
+  const rows = L.filter(x => !f.lv || x.lv === f.lv);
+  const names = [...new Set(Object.values(M.nhom).map(x => x.nhom))].filter(n => !isTY(n)).sort((a, b) => a.localeCompare(b, 'vi'));
+  const add = `<div class="tyadd"><input id="tyNew" class="nhq" list="tyNames" placeholder="Gõ tên nhóm để thêm vào danh sách thiết yếu…"><datalist id="tyNames">${names.map(n => `<option value="${esc(n)}">`).join('')}</datalist><button class="btn pri" onclick="tyAdd()">★ Thêm nhóm thiết yếu</button></div>`;
+  if (!L.length) return `<div class="page-h"><div><h2>Hàng thiết yếu</h2><p>Theo dõi riêng các nhóm hàng cực kỳ quan trọng (thuốc cấp cứu, kháng sinh chủ lực, dịch truyền…) để biết nhóm nào cần ưu tiên có hàng trước.</p></div></div>
+    <div class="card pad" style="display:flex;flex-direction:column;gap:12px"><div class="empty" style="padding:10px">Chưa có nhóm nào được đánh dấu thiết yếu. Thêm ở ô dưới, hoặc vào <b>Nhóm hàng hóa</b> → chọn nhóm → tích <b>Nhóm thiết yếu</b>.</div>${add}</div>`;
+  const cols = [
+    { k: 'lv', h: 'Ưu tiên', fv: x => TYL[x.lv], v: x => TYO[x.lv], r: x => `<span class="pill ${TYC[x.lv]}">${TYL[x.lv]}</span>` },
+    { k: 'name', h: 'Nhóm thiết yếu', fv: x => x.name, v: x => fold(x.name), r: x => `<div class="nm" style="min-width:160px"><b>${star(1)} ${esc(x.name)}</b><small>${x.g ? esc(x.g.hc) + ' · ' + esc(x.g.dvt) : ''}</small></div>` },
+    { k: 'stock', h: 'Tồn kho', n: 1, v: x => x.stock, r: x => x.stock == null ? '—' : `<b style="${x.stock <= 0 ? 'color:var(--bad)' : ''}">${fI(x.stock)}</b>` },
+    { k: 'u', h: 'Dùng/tháng', n: 1, v: x => x.u, r: x => x.u ? fI(x.u) : '—' },
+    { k: 'cover', h: 'Đủ dùng<br>(tháng)', n: 1, v: x => x.cover === Infinity ? 999 : x.cover, r: x => x.cover == null ? '—' : x.cover === Infinity ? '∞' : `<b style="color:${x.cover < S.low ? 'var(--bad)' : x.cover < S.watch ? 'var(--warn)' : 'inherit'}">${fN(x.cover)}</b>` },
+    { k: 'thau', h: 'Thầu còn hạn', n: 1, v: x => x.thauM, r: x => !x.g ? '—' : x.g.valid.length ? `${fI(x.g.avail)}<div class="muted" style="font-size:11px">đủ ${fN(x.thauM)} th · đến ${fD(x.lastExp < '9999' ? x.lastExp : null)}</div>` : '<b style="color:var(--bad)">Không có</b>' },
+    { k: 'why', h: 'Lý do', fv: x => x.why.join('; '), r: x => `<ul class="tyul">${x.why.map(w => `<li>${esc(w)}</li>`).join('')}</ul>` },
+    { k: 'todo', h: 'Việc cần làm', fv: x => x.todo.join('; '), r: x => x.todo.length ? `<ul class="tyul todo">${x.todo.map(w => `<li>${esc(w)}</li>`).join('')}</ul>` : '<span class="muted">—</span>' },
+    { k: 'x', h: '', r: x => `<span style="display:inline-flex;flex-direction:column;gap:4px">${x.g ? `<button class="lnk" data-grp="${esc(x.g.key)}">Chi tiết</button>${x.g.need > 0 ? `<button class="lnk" data-go="goi-y" data-f='${esc(JSON.stringify({ _: 'gy', st: '', q: x.name, mode: 'nhom' }))}'>Gọi hàng</button>` : ''}` : ''}<button class="lnk" style="color:var(--muted)" data-tyoff="${esc(x.name)}">${UI.tyOff === x.name ? 'Xác nhận bỏ' : 'Bỏ thiết yếu'}</button></span>` }
+  ];
+  return `<div class="page-h"><div><h2>Hàng thiết yếu</h2><p>Các nhóm được đánh dấu thiết yếu, xếp theo mức ưu tiên cần có hàng. <b>Khẩn cấp</b>: hết hàng / tồn dưới ${S.low} tháng, hoặc không còn thầu mà tồn dưới ${S.watch} tháng. <b>Cần xử lý</b>: tồn dưới ${S.watch} tháng, thầu còn hạn chỉ đủ dưới ${S.watch} tháng, thầu sắp hết hạn (≤ ${S.expDays} ngày) hoặc dự kiến thiếu trong 6 tháng.</p></div><span style="flex:1"></span><button class="btn ok" onclick="exportTY()">${ic('xls', 16)} Xuất Excel</button></div>
+  <div class="tykpi">${['p1', 'p2', 'nd', 'ok'].map(k => `<button class="tyk ${k} ${f.lv === k ? 'on' : ''}" onclick="UI.ty.lv=UI.ty.lv==='${k}'?'':'${k}';UI.rs=true;render()"><span>${TYL[k]}</span><b>${c[k]}</b></button>`).join('')}<button class="tyk all ${!f.lv ? 'on' : ''}" onclick="UI.ty.lv='';UI.rs=true;render()"><span>Tất cả nhóm thiết yếu</span><b>${L.length}</b></button></div>
+  <div class="card"><div class="pad" style="padding-bottom:0">${add}</div>${tbl('ty', cols, rows, { sort: 'lv', dir: 1, empty: 'Không có nhóm nào ở mức này.' })}</div>`;
+}
+function tySet(name, on) { DB.nhomTY = DB.nhomTY || {}; if (on) DB.nhomTY[name] = { at: new Date().toISOString(), by: FB.user ? FB.user.email : '' }; else delete DB.nhomTY[name]; saveDB(); recalc(); }
+function tyAdd() { const n = ($('#tyNew').value || '').trim(); if (!n) { toast('Nhập tên nhóm'); return; } const exist = Object.values(M.nhom).some(x => x.nhom === n); if (!exist) { toast('Không có nhóm "' + n + '". Chọn tên trong danh sách gợi ý.'); return; } tySet(n, true); toast('Đã thêm "' + n + '" vào nhóm thiết yếu'); }
+document.addEventListener('change', e => { if (e.target.dataset.ty != null) { tySet(e.target.dataset.ty, e.target.checked); toast(e.target.checked ? 'Đã đánh dấu nhóm thiết yếu' : 'Đã bỏ đánh dấu thiết yếu'); } });
+document.addEventListener('click', e => {
+  const o = e.target.closest('[data-tyoff]');
+  if (o) { const n = o.dataset.tyoff; if (UI.tyOff !== n) { UI.tyOff = n; render(); return; } UI.tyOff = null; tySet(n, false); toast('Đã bỏ "' + n + '" khỏi nhóm thiết yếu'); return; }
+  if (UI.tyOff && !e.target.closest('[data-tyoff]')) UI.tyOff = null;
+});
+function exportTY() {
+  const rows = (TREG.ty && TREG.ty.shown) || tyList();
+  wbSave([['Hang thiet yeu', [['Ưu tiên', 'Nhóm thiết yếu', 'Hoạt chất', 'ĐVT', 'Tồn kho', 'Dùng/tháng', 'Đủ dùng (tháng)', 'Thầu còn hạn', 'Thầu đủ (tháng)', 'Hạn thầu muộn nhất', 'Lý do', 'Việc cần làm'],
+    ...rows.map(x => [TYL[x.lv], x.name, x.g ? x.g.hc : '', x.g ? x.g.dvt : '', x.stock ?? '', x.u ? Math.round(x.u) : '', x.cover == null || !isFinite(x.cover) ? '' : +x.cover.toFixed(1), x.g ? x.g.avail : '', x.thauM == null ? '' : +x.thauM.toFixed(1), x.lastExp && x.lastExp < '9999' ? fD(x.lastExp) : '', x.why.join('; '), x.todo.join('; ')])],
+    [12, 28, 28, 7, 10, 10, 10, 12, 10, 12, 60, 70]]], `HangThietYeu_${stamp()}.xlsx`);
 }
 
 /* ====================== Dữ liệu & cài đặt ====================== */
