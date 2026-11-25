@@ -301,6 +301,8 @@ table.t{width:100%;border-collapse:collapse;font-size:13px}
 .tychk.on{border-color:#e0a100;background:var(--warn-soft);color:var(--warn)}
 .tyadd{display:flex;gap:8px;flex-wrap:wrap}.tyadd .nhq{flex:1 1 280px;max-width:480px}
 .tykpi{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+.tykpi.hdk{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.tyk.h3{background:var(--bad-soft)}.tyk.h3 b{color:var(--bad)}.tyk.h6{background:var(--warn-soft)}.tyk.h6 b{color:var(--warn)}
 @media (max-width:900px){.tykpi{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .tyk{all:unset;cursor:pointer;display:flex;flex-direction:column;gap:2px;padding:12px 14px;border-radius:10px;border:1px solid var(--line);background:var(--panel)}
 .tyk span{font-size:12.5px;color:var(--muted);font-weight:500}.tyk b{font-size:24px;font-variant-numeric:tabular-nums}
@@ -595,6 +597,7 @@ const ICON = {
   swap: '<path d="M4 8h14l-4-4M20 16H6l4 4"/>',
   edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
   layers: '<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   star: '<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>',
   plan: '<rect x="4" y="4" width="16" height="17" rx="2"/><path d="M8 2v4M16 2v4M4 10h16M8 14h3M8 17h6"/>'
 };
@@ -1171,20 +1174,21 @@ function openCols(btn) {
 /* ====================== Điều hướng ====================== */
 const VIEWS = [
   ['tong-quan', 'Tổng quan', 'home'], ['goi-thau', 'Danh mục gói thầu', 'doc'], ['hang-hoa', 'Hàng hóa theo thầu', 'box'],
-  ['goi-y', 'Gợi ý gọi hàng', 'cart'], ['du-tru', 'Dự trù mua sắm', 'plan'], ['thiet-yeu', 'Hàng thiết yếu', 'star'], ['canh-bao', 'Cảnh báo', 'warn'], ['dieu-chuyen', 'Điều chuyển thầu', 'swap'], ['thay-doi', 'Thay đổi thông tin thầu', 'edit'], ['nhom-hang', 'Nhóm hàng hóa', 'layers'], ['doi-chieu', 'Đối chiếu dữ liệu', 'check'], ['du-lieu', 'Dữ liệu & cài đặt', 'data']
+  ['goi-y', 'Gợi ý gọi hàng', 'cart'], ['du-tru', 'Dự trù mua sắm', 'plan'], ['thiet-yeu', 'Hàng thiết yếu', 'star'], ['han-dung', 'Hạn dùng thuốc', 'clock'], ['canh-bao', 'Cảnh báo', 'warn'], ['dieu-chuyen', 'Điều chuyển thầu', 'swap'], ['thay-doi', 'Thay đổi thông tin thầu', 'edit'], ['nhom-hang', 'Nhóm hàng hóa', 'layers'], ['doi-chieu', 'Đối chiếu dữ liệu', 'check'], ['du-lieu', 'Dữ liệu & cài đặt', 'data']
 ];
 function nav(v) { UI.rs = true; if (location.hash !== '#' + v) location.hash = v; else { UI.view = v; render(); } window.scrollTo(0, 0); }
 window.addEventListener('hashchange', () => { const v = location.hash.slice(1); if (VIEWS.some(x => x[0] === v)) { UI.view = v; render(); window.scrollTo(0, 0); } });
 function renderSide() {
+  const nH = hdCompute().filter(x => x.lv === 'het' || x.lv === 'huy').length;
   const nA = M.alerts.filter(a => a.lv === 'crit').length, nT = DB.nhomTY && Object.keys(DB.nhomTY).length ? tyList().filter(x => x.lv === 'p1').length : 0;
   const src = DB.kiemke.length ? `Tồn kho: <b>kiểm kê ${fD(M.kkDate)}</b><br>` : '';
-  $('#side').innerHTML = VIEWS.map(([k, t, i]) => `<a href="#${k}" class="${UI.view === k ? 'on' : ''}">${ic(i)}<span>${t}</span>${k === 'canh-bao' && nA ? `<span class="cnt">${nA}</span>` : ''}${k === 'thiet-yeu' && nT ? `<span class="cnt" title="Nhóm thiết yếu khẩn cấp">${nT}</span>` : ''}</a>`).join('')
+  $('#side').innerHTML = VIEWS.map(([k, t, i]) => `<a href="#${k}" class="${UI.view === k ? 'on' : ''}">${ic(i)}<span>${t}</span>${k === 'canh-bao' && nA ? `<span class="cnt">${nA}</span>` : ''}${k === 'han-dung' && nH ? `<span class="cnt" title="Lô đã hết hạn hoặc nguy cơ quá hạn">${nH}</span>` : ''}${k === 'thiet-yeu' && nT ? `<span class="cnt" title="Nhóm thiết yếu khẩn cấp">${nT}</span>` : ''}</a>`).join('')
     + `<div class="src">${src}Nhập ${M.year}: <b>${M.NY[M.year] ? 'bảng kê nhập' : 'theo danh mục'}</b><br>Sử dụng/tháng: <b>${M.mode === 'auto' ? 'xuất, thiếu thì lấy nhập' : M.mode === 'xuat' ? 'bảng kê xuất' : 'ước từ nhập'}</b><br>Dự trữ mục tiêu: <b>${S.target} tháng</b></div>`;
 }
 function render() {
   if (!M) return;
   renderSide();
-  const f = { 'tong-quan': vTongQuan, 'goi-thau': vGoiThau, 'hang-hoa': vHangHoa, 'goi-y': vGoiY, 'du-tru': vDuTru, 'canh-bao': vCanhBao, 'thiet-yeu': vThietYeu, 'doi-chieu': vDoiChieu, 'dieu-chuyen': vDieuChuyen, 'thay-doi': vThayDoi, 'nhom-hang': vNhomHang, 'du-lieu': vDuLieu }[UI.view] || vTongQuan;
+  const f = { 'tong-quan': vTongQuan, 'goi-thau': vGoiThau, 'hang-hoa': vHangHoa, 'goi-y': vGoiY, 'du-tru': vDuTru, 'canh-bao': vCanhBao, 'thiet-yeu': vThietYeu, 'han-dung': vHanDung, 'doi-chieu': vDoiChieu, 'dieu-chuyen': vDieuChuyen, 'thay-doi': vThayDoi, 'nhom-hang': vNhomHang, 'du-lieu': vDuLieu }[UI.view] || vTongQuan;
   const keep = UI.view === UI.lastView && !UI.rs ? [...document.querySelectorAll('#main .tw.fix')].map(e => [e.scrollTop, e.scrollLeft]) : [];
   const winY = UI.view === UI.lastView ? window.scrollY : 0;
   $('#main').innerHTML = DB.danhmuc || UI.view === 'du-lieu' ? f() : noData();
@@ -2010,6 +2014,67 @@ function exportTY() {
   wbSave([['Hang thiet yeu', [['Ưu tiên', 'Nhóm thiết yếu', 'Hoạt chất', 'ĐVT', 'Tồn kho', 'Dùng/tháng', 'Đủ dùng (tháng)', 'Thầu còn hạn', 'Thầu đủ (tháng)', 'Hạn thầu muộn nhất', 'Lý do', 'Việc cần làm'],
     ...rows.map(x => [TYL[x.lv], x.name, x.g ? x.g.hc : '', x.g ? x.g.dvt : '', x.stock ?? '', x.u ? Math.round(x.u) : '', x.cover == null || !isFinite(x.cover) ? '' : +x.cover.toFixed(1), x.g ? x.g.avail : '', x.thauM == null ? '' : +x.thauM.toFixed(1), x.lastExp && x.lastExp < '9999' ? fD(x.lastExp) : '', x.why.join('; '), x.todo.join('; ')])],
     [12, 28, 28, 7, 10, 10, 10, 12, 10, 12, 60, 70]]], `HangThietYeu_${stamp()}.xlsx`);
+}
+
+/* ====================== Hạn dùng (cận date & nguy cơ hủy) ====================== */
+const HDL = { het: 'Đã hết hạn', huy: 'Nguy cơ quá hạn', ngan: 'Hạn ngắn, dùng kịp', ok: 'Còn hạn dài' }, HDC = { het: 'p-het', huy: 'p-het', ngan: 'p-theodoi', ok: 'p-du' }, HDO = { het: 0, huy: 1, ngan: 2, ok: 3 };
+function hdCompute() {
+  if (!M.kkDate || !(DB.kiemke || []).length) return [];
+  const t0 = M.kkDate, out = [], lim = S.hsdM || 6;
+  const byG = {};
+  (DB.kiemke || []).forEach(k => k.lines.forEach(l => { const q = l.tt != null ? l.tt : l.ss; if (q > 0) { const key = M.nhom[l.ma] ? 'N:' + M.nhom[l.ma].nhom : 'C:' + l.ma; (byG[key] = byG[key] || []).push(l); } }));
+  for (const key in byG) {
+    const g = M.gmap[key] || null, u = g && g.usage > 0 ? g.usage : 0;
+    const lots = byG[key].slice().sort((a, b) => (a.hsd || '9999') < (b.hsd || '9999') ? -1 : 1);
+    let t = 0;
+    lots.forEach(l => {
+      const q = l.tt != null ? l.tt : l.ss, e = l.hsd ? mb(t0, l.hsd) : 999, eT = l.hsd ? mb(M.today, l.hsd) : 999;
+      const used = u > 0 ? Math.max(0, Math.min(q, (e - t) * u)) : 0;
+      const start = t; t += used / (u || 1);
+      const left = Math.round(q - used);
+      const lv = left > 0.5 && e < 600 ? (l.hsd < M.today ? 'het' : 'huy') : eT >= 0 && eT <= lim ? 'ngan' : 'ok';
+      const need = e - start > 0.05 ? q / (e - start) : null;
+      const todo = [];
+      if (lv === 'het') todo.push('Lập biên bản hủy / trả nhà cung cấp');
+      if (lv === 'huy') { todo.push('Ưu tiên xuất lô này trước (FEFO)'); if (u > 0) todo.push(`Cần dùng ≈ ${fI(need)}/tháng để kịp (hiện ${fI(u)}/tháng)`); else todo.push('Nhóm không phát sinh sử dụng'); todo.push('Điều chuyển sang đơn vị khác hoặc đổi trả nhà cung cấp'); if (g && g.need > 0) todo.push('Hạn chế gọi thêm hàng nhóm này'); }
+      if (lv === 'ngan') todo.push('Ưu tiên xuất trước, thông báo khoa lâm sàng');
+      out.push({ l, key, g, u, q, e, eT, days: l.hsd ? Math.round((new Date(l.hsd) - new Date(M.today)) / 864e5) : null, left: lv === 'ok' || lv === 'ngan' ? 0 : left, val: q * l.gia, risk: (lv === 'ok' || lv === 'ngan' ? 0 : left) * l.gia, endAt: u > 0 && used >= q - 0.5 ? addM(t0, t) : null, lv, todo, gname: g ? g.name : '' });
+    });
+  }
+  return out.sort((a, b) => HDO[a.lv] - HDO[b.lv] || b.risk - a.risk || ((a.l.hsd || '') < (b.l.hsd || '') ? -1 : (a.l.hsd || '') > (b.l.hsd || '') ? 1 : 0));
+}
+function vHanDung() {
+  const all = hdCompute(), f = UI.hd || (UI.hd = { lv: 'risk' });
+  if (!all.length) return `<div class="page-h"><div><h2>Hạn dùng & nguy cơ hủy</h2></div></div><div class="card pad empty">Chưa có biên bản kiểm kê có hạn dùng. Nạp biên bản ở mục Dữ liệu & cài đặt.</div>`;
+  const c = { het: [], huy: [], ngan: [], ok: [] }; all.forEach(x => c[x.lv].push(x));
+  const sum = a => a.reduce((s, x) => s + x.risk, 0), sumV = a => a.reduce((s, x) => s + x.val, 0);
+  const h3 = all.filter(x => x.eT >= 0 && x.eT < 3), h6 = all.filter(x => x.eT >= 0 && x.eT < 6);
+  let rows = all.filter(x => f.lv === 'all' ? true : f.lv === 'risk' ? x.lv !== 'ok' : f.lv === 'h3' ? x.eT >= 0 && x.eT < 3 : f.lv === 'h6' ? x.eT >= 0 && x.eT < 6 : x.lv === f.lv);
+  if (f.lv === 'h3' || f.lv === 'h6') rows = rows.slice().sort((a, b) => (a.l.hsd || '') < (b.l.hsd || '') ? -1 : 1);
+  const cols = [
+    { k: 'lv', h: 'Mức', fv: x => HDL[x.lv], v: x => HDO[x.lv], r: x => `<span class="pill ${HDC[x.lv]}">${HDL[x.lv]}</span>` },
+    { k: 'ten', h: 'Thuốc (lô trong kiểm kê)', fv: x => x.l.ten.split(' (')[0], v: x => fold(x.l.ten), r: x => `<div class="nm" style="min-width:180px"><b>${x.g && isTY(x.g.name) ? star(1) + ' ' : ''}${esc(x.l.ten.split(' (')[0])}</b><small>${esc(x.l.ma)}${x.gname ? ' · nhóm ' + esc(x.gname) : ''}</small></div>` },
+    { k: 'lo', h: 'Số lô', fv: x => x.l.lo, v: x => x.l.lo, r: x => esc(x.l.lo || '—') },
+    { k: 'hsd', h: 'Hạn dùng', v: x => x.l.hsd, r: x => `<b style="color:${x.lv === 'het' || x.lv === 'huy' ? 'var(--bad)' : x.lv === 'ngan' ? 'var(--warn)' : 'inherit'}">${fD(x.l.hsd)}</b><div class="muted" style="font-size:11px">${x.days == null ? '' : x.days < 0 ? 'quá ' + (-x.days) + ' ngày' : 'còn ' + (x.days > 60 ? fN(x.days / 30.44) + ' tháng' : x.days + ' ngày')}</div>` },
+    { k: 'q', h: 'SL tồn', n: 1, v: x => x.q, r: x => fI(x.q) + ` <span class="muted" style="font-size:11px">${esc(x.l.dv)}</span>` },
+    { k: 'val', h: 'Giá trị tồn', n: 1, v: x => x.val, r: x => fI(x.val) },
+    { k: 'u', h: 'Dùng/tháng<br>(nhóm)', n: 1, v: x => x.u, r: x => x.u ? fI(x.u) : '<span style="color:var(--bad)">0</span>' },
+    { k: 'end', h: 'Dự kiến<br>dùng hết', v: x => x.endAt, r: x => x.endAt ? fD(x.endAt) : x.lv === 'het' ? '—' : '<span class="muted">không kịp</span>' },
+    { k: 'left', h: 'SL nguy cơ<br>quá hạn', n: 1, v: x => x.left, r: x => x.left ? `<b style="color:var(--bad)">${fI(x.left)}</b>` : '' },
+    { k: 'risk', h: 'Giá trị<br>nguy cơ hủy', n: 1, v: x => x.risk, r: x => x.risk ? `<b style="color:var(--bad)">${fI(x.risk)}</b>` : '' },
+    { k: 'todo', h: 'Khuyến nghị', fv: x => x.todo.join('; '), r: x => x.todo.length ? `<ul class="tyul todo" style="min-width:250px">${x.todo.map(t => `<li>${esc(t)}</li>`).join('')}</ul>` : '' },
+    { k: 'x', h: '', r: x => x.g ? `<button class="lnk" data-grp="${esc(x.key)}">Nhóm</button>` : '' }
+  ];
+  const kp = (k, t, cnt, v, sub) => `<button class="tyk ${k} ${f.lv === k ? 'on' : ''}" onclick="UI.hd.lv='${k}';UI.TS.hd={k:'${k === 'h3' || k === 'h6' ? 'hsd' : 'lv'}',d:1,p:0};UI.rs=true;render()"><span>${t}</span><b>${cnt}</b><span>${sub}${fM(v)}</span></button>`;
+  return `<div class="page-h"><div><h2>Hạn dùng & nguy cơ hủy</h2><p>Tính theo từng lô trong biên bản kiểm kê ngày ${fD(M.kkDate)}: các lô cùng nhóm thuốc được giả định xuất theo FEFO (hết hạn trước xuất trước) với mức dùng/tháng của nhóm. Phần không kịp dùng trước hạn là <b>nguy cơ quá hạn</b>; lô đã qua hạn mà theo tính toán vẫn còn hàng là <b>đã hết hạn</b>. "Hạn ngắn" = còn ≤ ${S.hsdM} tháng nhưng dự kiến dùng kịp (ngưỡng sửa ở Thông số tính toán).</p></div><span style="flex:1"></span><button class="btn ok" onclick="exportHD()">${ic('xls', 16)} Xuất Excel</button></div>
+  <div class="tykpi hdk">${kp('h3', 'Hạn dùng < 3 tháng', h3.length, sumV(h3), 'giá trị ')}${kp('h6', 'Hạn dùng < 6 tháng', h6.length, sumV(h6), 'giá trị ')}${kp('het', 'Đã hết hạn (còn trong kho)', c.het.length, sum(c.het), 'giá trị ')}${kp('huy', 'Nguy cơ quá hạn', c.huy.length, sum(c.huy), 'dự kiến hủy ')}${kp('ngan', 'Hạn ngắn, dùng kịp', c.ngan.length, sumV(c.ngan), 'giá trị ')}${kp('risk', 'Cần chú ý', c.het.length + c.huy.length + c.ngan.length, sum(c.het) + sum(c.huy), 'nguy cơ ')}${kp('all', 'Tất cả lô', all.length, sumV(all), 'tồn ')}</div>
+  <div class="card">${f.lv === 'h3' || f.lv === 'h6' ? `<div class="pad" style="padding-bottom:0;font-size:13px"><b>Danh mục thuốc hạn dùng dưới ${f.lv === 'h3' ? 3 : 6} tháng</b> (tính đến ${fD(addM(M.today, f.lv === 'h3' ? 3 : 6))}), sắp xếp theo hạn dùng gần nhất. Cột Mức cho biết lô nào dự kiến dùng kịp, lô nào không.</div>` : ''}${tbl('hd', cols, rows, { sort: f.lv === 'h3' || f.lv === 'h6' ? null : 'lv', dir: 1, tall: 1, empty: 'Không có lô nào ở mức này.' })}</div>`;
+}
+function exportHD() {
+  const rows = (TREG.hd && TREG.hd.shown) || hdCompute();
+  wbSave([['Han dung', [[`CẢNH BÁO HẠN DÙNG — kiểm kê ${fD(M.kkDate)}, ngày tính ${fD(M.today)}`], [], ['Mức', 'Mã', 'Tên thuốc', 'Nhóm', 'Số lô', 'Hạn dùng', 'Còn (ngày)', 'ĐVT', 'SL tồn', 'Đơn giá', 'Giá trị tồn', 'Dùng/tháng (nhóm)', 'Dự kiến dùng hết', 'SL nguy cơ quá hạn', 'Giá trị nguy cơ hủy', 'Khuyến nghị'],
+    ...rows.map(x => [HDL[x.lv], x.l.ma, x.l.ten, x.gname, x.l.lo, fD(x.l.hsd), x.days, x.l.dv, x.q, x.l.gia, Math.round(x.val), Math.round(x.u), x.endAt ? fD(x.endAt) : '', x.left, Math.round(x.risk), x.todo.join('; ')])],
+    [14, 10, 36, 24, 10, 11, 9, 7, 10, 10, 12, 10, 12, 12, 14, 60]]], `CanhBaoHanDung_${stamp()}.xlsx`);
 }
 
 /* ====================== Dữ liệu & cài đặt ====================== */
